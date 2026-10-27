@@ -54,13 +54,9 @@ your workflow job                                                     report job
 
 ## Setup
 
-### 1. Give your repository access to this action
+### 1. Add a `.qa-agent/` folder to your project
 
-This repository is private. In **Settings → Actions → General → Access** of `infonl/info-qa-agent`,
-"Accessible from repositories in the infonl organization" must be selected (an admin of this repository
-sets it once).
-
-### 2. Add a `.qa-agent/` folder to your project
+This repository is public, so any repository can use the action; nothing needs to be granted.
 
 Copy [`examples/.qa-agent/`](examples/.qa-agent) to the root of your repository and adapt the four files.
 
@@ -82,7 +78,7 @@ Tips for `instructions.md`, learned from the first runs:
 - **Keep the agent creating little data**: say "one record per spec file, in `test.beforeAll`".
 - **Never mention cost or budget.** A small model takes it literally and starts skipping tests.
 
-### 3. Add secrets and variables
+### 2. Add secrets and variables
 
 On the repository or the environment the workflow uses:
 
@@ -90,10 +86,10 @@ On the repository or the environment the workflow uses:
 |---|---|---|
 | the URL of your test environment | variable or secret | Passed to the action as `app-url`. |
 | your test user credentials | secrets | Whatever `helpers.ts` reads, passed as `env:` to the action step. |
-| `QA_AGENT_SLACK_WEBHOOK_URL` | secret | Optional, see step 4. |
-| `QA_AGENT_JIRA_EMAIL`, `QA_AGENT_JIRA_API_TOKEN` | secrets | Optional, see step 5. |
+| `QA_AGENT_SLACK_WEBHOOK_URL` | secret | Optional, see step 3. |
+| `QA_AGENT_JIRA_EMAIL`, `QA_AGENT_JIRA_API_TOKEN` | secrets | Optional, see step 4. |
 
-### 4. Slack (optional)
+### 3. Slack (optional)
 
 1. At [api.slack.com/apps](https://api.slack.com/apps): **Create New App → From scratch**, name it e.g.
    "QA Agent".
@@ -104,7 +100,7 @@ On the repository or the environment the workflow uses:
 
 Without the webhook, the report still appears in the job summary.
 
-### 5. Jira (optional)
+### 4. Jira (optional)
 
 With Jira the agent tests against the ticket text and its acceptance criteria; without it, against the PR
 description and the diff.
@@ -119,7 +115,7 @@ description and the diff.
 For a sub-task, the action also reads the description of its parent story, because that's usually where
 the acceptance criteria are.
 
-### 6. Add the workflow
+### 5. Add the workflow
 
 Copy [`examples/workflow.yml`](examples/workflow.yml) to `.github/workflows/qa-agent.yml` and adjust the
 lines marked `ADJUST`. Keep:
@@ -129,7 +125,7 @@ lines marked `ADJUST`. Keep:
 - the **separate report job**. The agent can write anywhere on its own runner, so the Slack webhook must
   only exist on a fresh one.
 
-### 7. First run
+### 6. First run
 
 The "Run workflow" button only appears once the workflow is on the default branch. To try it from a branch
 first, add a temporary trigger and remove it before merging:
