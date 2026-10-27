@@ -44,11 +44,10 @@ if [[ -f "$RESULTS" ]] && jq -e '.slack_message | type == "string" and length > 
               [ "\(plural($changes; "change")) checked",
                 (count("pass") | select(. > 0) | ":white_check_mark: \(.) fine"),
                 (count("fail") | select(. > 0) | ":beetle: \(plural(.; "bug"))"),
-                (count("needs-human") | select(. > 0) | ":eyes: \(.) to look at")
-              ] | join("  ·  ")) }] },
-          { type: "actions", elements: [
-              { type: "button", text: { type: "plain_text", text: "Read more" }, url: $run }
-          ] }
+                (count("needs-human") | select(. > 0) | ":eyes: \(.) to look at"),
+                # A link, not a button: a button shows a warning in Slack unless the app has interactivity set up.
+                "<\($run)|Read more →>"
+              ] | join("  ·  ")) }] }
         ]
       }' "$RESULTS")
 else
@@ -56,10 +55,7 @@ else
     text: "My QA run did not finish today.",
     blocks: [
       { type: "section", text: { type: "mrkdwn",
-          text: ":warning: My QA run did not finish today, so I have nothing to report. Something went wrong on my side, the log has the details." } },
-      { type: "actions", elements: [
-          { type: "button", text: { type: "plain_text", text: "Open the log" }, url: $run }
-      ] }
+          text: ":warning: My QA run did not finish today, so I have nothing to report. Something went wrong on my side, <\($run)|the log> has the details." } }
     ]}')
 fi
 

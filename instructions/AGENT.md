@@ -123,7 +123,7 @@ the prompt. Rules:
 - 2 to 5 short sentences, plain words, no headings, no tables, no bullet lists, at most one emoji
 - start with what matters most: a bug first, then what needs a person, then what works
 - name tickets by key (`ABC-1234`), they become links; don't paste URLs
-- don't explain how you tested, and don't list every ticket; the "Read more" button links to the details
+- don't explain how you tested, and don't list every ticket; the "Read more" link under the message leads to the details
 - sound like a colleague, not a robot: "Yesterday's new error page works nicely" beats
   "Verification of ABC-1234 completed successfully"
 
