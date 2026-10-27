@@ -1,0 +1,167 @@
+name: "INFO QA agent"
+description: "An AI QA agent that tests the recently merged PRs of a project in the browser and writes a report."
+author: "INFO"
+
+inputs:
+  app-url:
+    description: "URL of the test environment the agent tests against"
+    required: true
+  scope:
+    description: "What to test: yesterday | <N>d | since:YYYY-MM-DD. yesterday is the previous working day."
+    default: "yesterday"
+  model:
+    description: "Copilot model of the agent"
+    default: "claude-haiku-5.5"
+  language:
+    description: "Language of the Slack message the agent writes"
+    default: "English"
+  locale:
+    description: "Browser locale for the tests, e.g. nl-NL"
+    default: "en-US"
+  project-dir:
+    description: "Folder in the repository with the project's instructions.md, helpers.ts, smoke.spec.ts and optional cleanup.spec.ts"
+    default: ".qa-agent"
+  base-branch:
+    description: "Branch the PRs are merged into"
+    default: "main"
+  app-paths:
+    description: "Regex; a PR is tested when it changes a file matching it"
+    default: "."
+  skip-authors:
+    description: "Comma separated PR authors to skip"
+    default: "app/renovate,app/dependabot,renovate[bot],dependabot[bot]"
+  max-prs:
+    description: "Maximum number of PRs per run, newest first"
+    default: "15"
+  jira-base-url:
+    description: "Optional Jira Cloud URL, e.g. https://example.atlassian.net"
+    default: ""
+  jira-project-keys:
+    description: "Optional comma separated Jira project keys"
+    default: ""
+  jira-email:
+    description: "Optional Jira account e-mail; only used before the agent starts"
+    default: ""
+  jira-api-token:
+    description: "Optional Jira API token; only used before the agent starts"
+    default: ""
+  github-token:
+    description: "Token for reading PRs and for Copilot; the workflow needs copilot-requests: write"
+    default: ${{ github.token }}
+
+outputs:
+  pr-count:
+    description: "Number of PRs the agent tested"
+    value: ${{ steps.gather.outputs.pr_count }}
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare the working directory
+      shell: bash
+      env:
+        PROJECT_DIR: ${{ inputs.project-dir }}
+        WORK: ${{ github.workspace }}/.qa-agent-run
+      run: |
+        for file in instructions.md helpers.ts smoke.spec.ts; do
+          [[ -f "$PROJECT_DIR/$file" ]] || { echo "::error::$PROJECT_DIR/$file is missing, see the README of info-qa-agent"; exit 1; }
+        done
+        rm -rf "$WORK"
+        mkdir -p "$WORK/tests" "$WORK/output"
+        cp -R "$GITHUB_ACTION_PATH/runner/." "$WORK/"
+        cp "$GITHUB_ACTION_PATH/instructions/AGENT.md" "$WORK/AGENT.md"
+        cp -R "$PROJECT_DIR" "$WORK/project"
+        echo "QA_AGENT_WORK=$WORK" >> "$GITHUB_ENV"
+
+    - name: Gather merged PRs and tickets
+      id: gather
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        SCOPE: ${{ inputs.scope }}
+        BASE_BRANCH: ${{ inputs.base-branch }}
+        APP_PATHS: ${{ inputs.app-paths }}
+        SKIP_AUTHORS: ${{ inputs.skip-authors }}
+        MAX_PRS: ${{ inputs.max-prs }}
+        JIRA_BASE_URL: ${{ inputs.jira-base-url }}
+        JIRA_PROJECT_KEYS: ${{ inputs.jira-project-keys }}
+        JIRA_EMAIL: ${{ inputs.jira-email }}
+        JIRA_API_TOKEN: ${{ inputs.jira-api-token }}
+      run: OUT_DIR="$QA_AGENT_WORK/context" bash "$GITHUB_ACTION_PATH/scripts/gather.sh"
+
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      if: steps.gather.outputs.pr_count != '0'
+      with:
+        node-version: 24
+
+    - name: Install Playwright and Copilot CLI
+      if: steps.gather.outputs.pr_count != '0'
+      shell: bash
+      run: |
+        cd "$QA_AGENT_WORK" && npm ci --ignore-scripts && npx playwright install --with-deps chromium
+        npm install -g @github/copilot@1.0.103
+
+    - name: Check that the test environment is up
+      if: steps.gather.outputs.pr_count != '0'
+      shell: bash
+      env:
+        QA_APP_URL: ${{ inputs.app-url }}
+      run: curl -sS -o /dev/null --fail --max-time 30 --retry 3 "$QA_APP_URL"
+
+    - name: Run the QA agent
+      if: steps.gather.outputs.pr_count != '0'
+      shell: bash
+      working-directory: ${{ github.workspace }}/.qa-agent-run
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        QA_APP_URL: ${{ inputs.app-url }}
+        QA_LOCALE: ${{ inputs.locale }}
+        MODEL: ${{ inputs.model }}
+        LANGUAGE: ${{ inputs.language }}
+        SINCE: ${{ steps.gather.outputs.since }}
+        UNTIL: ${{ steps.gather.outputs.until }}
+      # Copilot CLI can only allow file writes as a whole, not per folder. So the cleanup is restored from
+      # git before it runs, and the report action runs in a separate job on a fresh runner.
+      # There is deliberately no --max-ai-credits: with it, the model kept skipping tests to save budget.
+      # The timeout of the calling job caps the cost instead.
+      run: |
+        copilot -p "Run a QA pass for the PRs merged from $SINCE to $UNTIL.
+        Your working directory holds the QA files; the repository of the application is $GITHUB_WORKSPACE.
+        Read AGENT.md and follow it. The gathered context is in context/manifest.md.
+        Write the Slack message in $LANGUAGE.
+        You are done when output/report.md exists and npm run check passes." \
+          --add-dir "$GITHUB_WORKSPACE" \
+          --model "$MODEL" \
+          --allow-tool='write, shell(npm run:*)' \
+          --no-ask-user \
+          --no-custom-instructions \
+          --disable-builtin-mcps \
+          --no-auto-update \
+          --usage-output-file output/copilot-usage.json \
+          --share output/session.md \
+          || echo "::warning::The QA agent ended with an error; the report shows what it finished."
+
+    - name: Clean up the test data of the run
+      if: always() && steps.gather.outputs.pr_count != '0' && hashFiles(format('{0}/cleanup.spec.ts', inputs.project-dir)) != ''
+      shell: bash
+      env:
+        PROJECT_DIR: ${{ inputs.project-dir }}
+        QA_APP_URL: ${{ inputs.app-url }}
+        QA_LOCALE: ${{ inputs.locale }}
+      # The cleanup comes from git, not from files the agent may have changed.
+      run: |
+        git checkout HEAD -- "$PROJECT_DIR"
+        rm -rf "$QA_AGENT_WORK/project" && cp -R "$PROJECT_DIR" "$QA_AGENT_WORK/project"
+        cd "$QA_AGENT_WORK" && npm run cleanup || echo "::warning::The cleanup of the test data failed."
+
+    - name: Upload the report, screenshots and tests
+      if: always() && steps.gather.outputs.pr_count != '0'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: qa-agent-${{ github.run_id }}
+        retention-days: 14
+        path: |
+          ${{ github.workspace }}/.qa-agent-run/output/
+          ${{ github.workspace }}/.qa-agent-run/context/manifest.md
+          ${{ github.workspace }}/.qa-agent-run/context/skipped.json
+          ${{ github.workspace }}/.qa-agent-run/tests/
