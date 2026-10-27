@@ -1,0 +1,129 @@
+# Reusable workflow: the QA agent and its report, for projects that need no setup steps of their own.
+# Projects that do (e.g. opening a firewall) use the actions directly; see the README.
+name: QA agent
+
+on:
+  workflow_call:
+    inputs:
+      app-url:
+        description: "URL of the test environment"
+        type: string
+        required: true
+      scope:
+        type: string
+        default: yesterday
+      model:
+        type: string
+        default: claude-haiku-5.5
+      language:
+        description: "Language of the Slack message"
+        type: string
+        default: English
+      locale:
+        description: "Browser locale for the tests"
+        type: string
+        default: en-US
+      project-dir:
+        type: string
+        default: .qa-agent
+      base-branch:
+        type: string
+        default: main
+      app-paths:
+        type: string
+        default: "."
+      max-prs:
+        type: string
+        default: "15"
+      jira-base-url:
+        type: string
+        default: ""
+      jira-project-keys:
+        type: string
+        default: ""
+      timeout-minutes:
+        description: "Caps the duration, and so the cost, of a run"
+        type: number
+        default: 60
+    secrets:
+      username:
+        required: false
+      password:
+        required: false
+      username-2:
+        required: false
+      password-2:
+        required: false
+      jira-email:
+        required: false
+      jira-api-token:
+        required: false
+      slack-webhook-url:
+        required: false
+
+jobs:
+  qa-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+      pull-requests: read
+      copilot-requests: write
+    outputs:
+      pr-count: ${{ steps.qa.outputs.pr-count }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The agent reads the diffs from the merge commits.
+          fetch-depth: 0
+
+      # The action at the same commit as this workflow.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .qa-agent-action
+
+      - uses: ./.qa-agent-action
+        id: qa
+        with:
+          app-url: ${{ inputs.app-url }}
+          username: ${{ secrets.username }}
+          password: ${{ secrets.password }}
+          username-2: ${{ secrets.username-2 }}
+          password-2: ${{ secrets.password-2 }}
+          scope: ${{ inputs.scope }}
+          model: ${{ inputs.model }}
+          language: ${{ inputs.language }}
+          locale: ${{ inputs.locale }}
+          project-dir: ${{ inputs.project-dir }}
+          base-branch: ${{ inputs.base-branch }}
+          app-paths: ${{ inputs.app-paths }}
+          max-prs: ${{ inputs.max-prs }}
+          jira-base-url: ${{ inputs.jira-base-url }}
+          jira-project-keys: ${{ inputs.jira-project-keys }}
+          jira-email: ${{ secrets.jira-email }}
+          jira-api-token: ${{ secrets.jira-api-token }}
+
+  # The agent can write anywhere on its own runner, so the Slack webhook is only used here, on a fresh one.
+  report:
+    needs: qa-agent
+    if: always() && needs.qa-agent.outputs.pr-count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .qa-agent-action
+
+      - uses: ./.qa-agent-action/report
+        with:
+          slack-webhook-url: ${{ secrets.slack-webhook-url }}
+          jira-base-url: ${{ inputs.jira-base-url }}
+          jira-project-keys: ${{ inputs.jira-project-keys }}
+          scope: ${{ inputs.scope }}
+          model: ${{ inputs.model }}

@@ -3,9 +3,10 @@ import os from "os";
 import path from "path";
 
 // A config of its own, so the cleanup never clears the screenshots and reports of the agent run.
+// Runs the scripts the cleanup session writes from the project's cleanup.md.
 export default defineConfig({
-  testDir: "project",
-  testMatch: "cleanup.spec.ts",
+  testDir: "cleanup",
+  testMatch: "**/*.spec.ts",
   outputDir: path.join(os.tmpdir(), "qa-agent-cleanup"),
   timeout: 10 * 60_000,
   retries: 0,

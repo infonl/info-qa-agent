@@ -13,8 +13,9 @@ You don't know exactly which rights the test users have. When a ticket is about 
 right, a test user may well have that right; if the result could be explained by that, mark it
 `needs-human` instead of `fail`.
 
-**Read `project/instructions.md` first.** It describes the application, its pages, test users, test data
-and project rules. Where it differs from this file, the project file wins.
+**Read the project's markdown files in `project/` first** (except `cleanup.md`, which is for later). They
+describe the application, how to log in, its pages, test data and project rules. Where they differ from
+this file, the project files win. Without them, learn the application from its README and source.
 
 ## What you have
 
@@ -28,9 +29,7 @@ prompt.
 | `context/diffs/<PR>.diff` | Trimmed diff per PR. |
 | `context/jira/<KEY>.json` | Ticket text, when the project uses Jira. For a sub-task, `parent_description` holds the story. |
 | The repository root | Source at the merged state. Read it to find labels and routes; never change it. |
-| `project/instructions.md` | About this application. |
-| `project/helpers.ts` | The project's helpers, such as `login`. Always use them. |
-| `project/smoke.spec.ts` | The smoke test: logging in works. |
+| `project/*.md` | About this application, written by its team. |
 
 ## Your tools
 
@@ -43,11 +42,13 @@ prompt.
   ```
 
 Commands that delete or change files, like `rm`, are refused. You never need them: the runner is thrown
-away after the run, so there is nothing to clean up.
-The application URL (`QA_APP_URL`) and the test user credentials are set for the tests; you don't need to
-see them. Use relative URLs in `page.goto`.
+away after the run, so there is nothing to clean up. A refused command only refuses that one command:
+`npm run test` and `npm run check` always work, so always run them, even after another command was refused.
+The application URL is Playwright's `baseURL`, so use relative URLs in `page.goto`. The test users'
+credentials are environment variables for the tests: `QA_USERNAME` and `QA_PASSWORD`, and for a second
+user, if the project has one, `QA_USERNAME_2` and `QA_PASSWORD_2`. Read them with `process.env` in test
+code; you can't and don't need to see their values.
 
-Tests import the helpers with `import { ... } from "../project/helpers";`.
 Playwright already takes a screenshot of every test and stores it, with the trace of a failing test, under
 `output/test-results/`. Don't call `page.screenshot` with a path of your own; for an extra screenshot, use
 `page.screenshot({ path: test.info().outputPath("<name>.png") })`.
@@ -56,19 +57,22 @@ Playwright already takes a screenshot of every test and stores it, with the trac
 
 - Only open pages of the application under test (login redirects are fine). Never another host.
 - Only write files in `tests/` and `output/`.
-- Follow the rules for test data in `project/instructions.md`. Without them: change only data you
-  created in this run, and never send e-mail to a real address.
+- Follow the rules for test data in the project files. Without them: change only data you created in
+  this run, and never send e-mail to a real address.
 - Never weaken an assertion to get green. A difference with the ticket is a finding.
-- Never print or log credentials; read them only through the helpers.
+- Never print, log or hard-code credentials; only read them from the environment variables above.
 - If something blocks you (login fails, page doesn't load), stop that line of work, note it as
   `needs-human`, and go on with the rest.
 
 ## Steps
 
-0. **Smoke test**: run `npm run test -- project/smoke.spec.ts` first. If it fails, the environment or the
-   login is broken: skip step 2 and 3, mark every `test` and `smoke` item `needs-human`, and make the
-   Slack message one sentence saying you couldn't log in today, so nothing was tested. Don't ask people
-   to click through everything.
+0. **Login and smoke test**: write `tests/login.ts` with an exported `login(page, user)` that follows the
+   login instructions of the project, with `user` being `1` or `2` for the two sets of credentials. Then
+   write `tests/smoke.spec.ts`: log in and check that the first page after login shows. Run it with
+   `npm run test -- tests/smoke.spec.ts`; fix a wrong locator at most twice. If it still fails, the
+   environment or the login is broken: skip step 2 and 3, mark every `test` and `smoke` item
+   `needs-human`, and make the Slack message one sentence saying you couldn't log in today, so nothing
+   was tested. Don't ask people to click through everything. All later tests log in with `login`.
 1. **Triage** (no browser yet). For each PR in the manifest, decide in one line:
    - `test`: a user can see the change in the UI (new or changed screen, button, text, error page, list behaviour)
    - `smoke`: a refactor or library upgrade of frontend code; one quick test of an affected page is enough,
@@ -82,8 +86,8 @@ Playwright already takes a screenshot of every test and stores it, with the trac
    doesn't claim more.
    Prefer `getByRole`, `getByLabel` and `getByText`, and look up the real labels in the source instead of
    guessing.
-   When a test needs data that isn't there, create it the way `project/instructions.md` describes,
-   instead of skipping the test. Only use `test.skip` when you can't create the data.
+   When a test needs data that isn't there, create it the way the project files describe, instead of
+   skipping the test. Put steps you repeat, like creating a record, in a helper in `tests/`. Only use `test.skip` when you can't create the data.
 3. **When a test fails**, decide:
    - test bug (wrong locator, timing): fix it, at most 2 attempts, then mark `needs-human`
    - app bug (behaviour contradicts the ticket): keep the test as is and describe the bug
@@ -94,6 +98,12 @@ Playwright already takes a screenshot of every test and stores it, with the trac
 5. **Report**: write the two files below. Do this even when you ran out of time for some items.
 6. **Check**: run `npm run check`. It tells you when `output/results.json` isn't valid JSON or misses a
    field. Fix the file until the check passes; you are not done before that.
+7. **Improve the project files** (only when needed). If a project file was missing something or was wrong,
+   and that cost you a failed attempt (a login step, a locator, a route, test data), write an improved copy
+   of that whole file to `output/instructions/<same file name>`, changing only what fixes the problem, for
+   example the locator that finally worked. Also write `output/instructions/REASON.md`: per change, what
+   failed, what you changed, and the test that proves it. Skip this step when nothing failed because of the
+   project files; never just reword them. A person reviews your suggestion before it's used.
 
 ## `output/results.json`
 

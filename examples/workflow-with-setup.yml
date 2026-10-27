@@ -1,0 +1,81 @@
+# For a test environment that needs setup steps before it can be reached (e.g. opening a firewall).
+# Without such steps, use the shorter workflow.yml. Copy to .github/workflows/qa-agent.yml and adjust.
+name: QA Agent
+
+on:
+  schedule:
+    # Weekdays 05:30 UTC (07:30 Amsterdam in summer, 06:30 in winter). Tests the previous working day.
+    - cron: "30 5 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "What to test: yesterday | <N>d | since:YYYY-MM-DD"
+        default: yesterday
+      model:
+        description: "Copilot model of the agent"
+        default: claude-haiku-5.5
+        type: choice
+        options: [claude-haiku-5.5, claude-sonnet-5.5]
+      post_to_slack:
+        description: "Post the summary to Slack"
+        default: true
+        type: boolean
+
+concurrency:
+  group: qa-agent
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+  # Copilot CLI requests are billed to the organization through the workflow token.
+  copilot-requests: write
+
+jobs:
+  qa-agent:
+    runs-on: ubuntu-latest
+    # Caps the cost of a run; a normal run takes 20 to 40 minutes.
+    timeout-minutes: 60
+    environment: test # ADJUST: the environment that holds the secrets of your test environment
+    outputs:
+      pr-count: ${{ steps.qa.outputs.pr-count }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The agent reads the diffs from the merge commits.
+          fetch-depth: 0
+
+      # ADJUST: add the steps your test environment needs before it can be reached, e.g. opening a
+      # firewall. Clear any cloud login before the agent starts (tests it writes can run any program),
+      # and log in again after it to close the firewall.
+
+      - uses: infonl/info-qa-agent@v1 # pin a commit SHA in production
+        id: qa
+        with:
+          app-url: ${{ vars.QA_APP_URL }} # ADJUST
+          username: ${{ secrets.QA_USERNAME }}
+          password: ${{ secrets.QA_PASSWORD }}
+          scope: ${{ inputs.scope || 'yesterday' }}
+          model: ${{ inputs.model || 'claude-haiku-5.5' }}
+          locale: en-US # ADJUST
+          language: English # ADJUST: language of the Slack message
+          app-paths: "^src/" # ADJUST: which files count as application code
+          jira-base-url: https://example.atlassian.net # ADJUST or remove
+          jira-project-keys: ABC # ADJUST or remove
+          jira-email: ${{ secrets.QA_AGENT_JIRA_EMAIL }}
+          jira-api-token: ${{ secrets.QA_AGENT_JIRA_API_TOKEN }}
+
+  report:
+    needs: qa-agent
+    if: always() && needs.qa-agent.outputs.pr-count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: test # ADJUST: only needed when the Slack secret lives on the environment
+    steps:
+      - uses: infonl/info-qa-agent/report@v1 # pin the same commit SHA as above
+        with:
+          slack-webhook-url: ${{ (github.event_name != 'workflow_dispatch' || inputs.post_to_slack) && secrets.QA_AGENT_SLACK_WEBHOOK_URL || '' }}
+          jira-base-url: https://example.atlassian.net # ADJUST or remove
+          jira-project-keys: ABC # ADJUST or remove
+          scope: ${{ inputs.scope || 'yesterday' }}
+          model: ${{ inputs.model || 'claude-haiku-5.5' }}
