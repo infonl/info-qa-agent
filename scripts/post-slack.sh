@@ -31,23 +31,12 @@ if [[ -f "$RESULTS" ]] && jq -e '.slack_message | type == "string" and length > 
     def escape: gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;");
     def link_tickets:
       if $jira == "" then . else gsub("(?<key>\($key_re))"; "<\($jira)/browse/\(.key)|\(.key)>") end;
-    def count($verdict): [.tickets[]? | select(.verdict == $verdict)] | length;
-    def plural($n; $word): "\($n) \($word)\(if $n == 1 then "" else "s" end)";
-
     (.slack_message | escape) as $message
-    | ([.tickets[]? | .prs[]?] | unique | length) as $changes
     | {
         text: $message,
+        # A link, not a button: a button shows a warning in Slack unless the app has interactivity set up.
         blocks: [
-          { type: "section", text: { type: "mrkdwn", text: ($message | link_tickets) } },
-          { type: "context", elements: [{ type: "mrkdwn", text: (
-              [ "\(plural($changes; "change")) checked",
-                (count("pass") | select(. > 0) | ":white_check_mark: \(.) fine"),
-                (count("fail") | select(. > 0) | ":beetle: \(plural(.; "bug"))"),
-                (count("needs-human") | select(. > 0) | ":eyes: \(.) to look at"),
-                # A link, not a button: a button shows a warning in Slack unless the app has interactivity set up.
-                "<\($run)|Read more →>"
-              ] | join("  ·  ")) }] }
+          { type: "section", text: { type: "mrkdwn", text: "\($message | link_tickets)\n<\($run)|Read more →>" } }
         ]
       }' "$RESULTS")
 else

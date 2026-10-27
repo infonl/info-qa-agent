@@ -8,7 +8,7 @@ to Slack:
 > document card still overlaps the side menu on a narrow screen (ABC-1234), could someone take a look? The
 > rest were backend refactors, nothing to click there.
 >
-> <sub>15 changes checked · ✅ 9 fine · 👀 3 to look at · [Read more →](#)</sub>
+> [Read more →](#)
 
 "Read more" opens the full report in GitHub: a verdict per ticket, the bugs with steps and screenshots, and
 what a person should still check. The tests the agent wrote, with screenshots and traces, are attached to
