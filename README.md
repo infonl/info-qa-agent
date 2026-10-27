@@ -6,11 +6,9 @@ to Slack:
 
 > Morning! I tested yesterday's changes on dev. The new error page for the inbox works nicely, but the
 > document card still overlaps the side menu on a narrow screen (ABC-1234), could someone take a look? The
-> rest were backend refactors, nothing to click there.
->
-> [Read more →](#)
+> rest were backend refactors, nothing to click there. [Read my full report here](#).
 
-"Read more" opens the full report in GitHub: a verdict per ticket, the bugs with steps and screenshots, and
+The link opens the full report in GitHub: a verdict per ticket, the bugs with steps and screenshots, and
 what a person should still check. The tests the agent wrote, with screenshots and traces, are attached to
 the run.
 
@@ -22,7 +20,7 @@ It supports testers; it never blocks a merge or a release. An honest "needs a hu
 your workflow job                                                     report job (fresh runner)
 ┌──────────────────────────────────────────────────────────────┐      ┌────────────────────────────┐
 │ checkout ─► your own setup (e.g. open a firewall)            │      │ info-qa-agent/report       │
-│   ─► info-qa-agent                                           │ ───► │   job summary ("Read more")│
+│   ─► info-qa-agent                                           │ ───► │   job summary (full report)│
 │        1 gather: merged PRs, diffs, Jira tickets (no AI)     │      │   Slack message            │
 │        2 agent: triage, write Playwright tests, run, report  │      └────────────────────────────┘
 │        3 cleanup: your cleanup.spec.ts, restored from git    │

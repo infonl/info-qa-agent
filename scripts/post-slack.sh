@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Posts the teammate-style message of the agent to Slack, with a "Read more" button to the job summary.
+# Posts the teammate-style message of the agent to Slack, ending in a link to the full report.
 # A run without results still posts a short warning, so a broken run never looks like a quiet day.
 #
 # Env:
@@ -36,7 +36,7 @@ if [[ -f "$RESULTS" ]] && jq -e '.slack_message | type == "string" and length > 
         text: $message,
         # A link, not a button: a button shows a warning in Slack unless the app has interactivity set up.
         blocks: [
-          { type: "section", text: { type: "mrkdwn", text: "\($message | link_tickets)\n<\($run)|Read more →>" } }
+          { type: "section", text: { type: "mrkdwn", text: "\($message | link_tickets) <\($run)|Read my full report here>." } }
         ]
       }' "$RESULTS")
 else

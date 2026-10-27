@@ -123,7 +123,7 @@ the prompt. Rules:
 - 2 to 5 short sentences, plain words, no headings, no tables, no bullet lists, at most one emoji
 - start with what matters most: a bug first, then what needs a person, then what works
 - name tickets by key (`ABC-1234`), they become links; don't paste URLs
-- don't explain how you tested, and don't list every ticket; the "Read more" link under the message leads to the details
+- don't explain how you tested, and don't list every ticket; a link to your full report is added after the message
 - sound like a colleague, not a robot: "Yesterday's new error page works nicely" beats
   "Verification of ABC-1234 completed successfully"
 
@@ -133,7 +133,7 @@ rest were backend refactors, nothing to click there."
 
 ## `output/report.md`
 
-The "Read more" page, shown in the GitHub job summary. Keep it scannable:
+The full report, linked from the Slack message and shown in the GitHub job summary. Keep it scannable:
 
 1. One short paragraph: what you tested and the main result.
 2. A table: ticket | verdict | one-line note.

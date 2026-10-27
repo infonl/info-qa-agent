@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Writes the "Read more" page: the report of the agent plus the usage of the run and the skipped PRs,
+# Writes the full report: the report of the agent plus the usage of the run and the skipped PRs,
 # to the GitHub job summary (or to stdout when run locally).
 #
 # Env: OUTPUT_DIR (default: output), CONTEXT_DIR (default: context), SCOPE, MODEL, GITHUB_STEP_SUMMARY
