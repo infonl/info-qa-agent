@@ -110,12 +110,6 @@ Playwright already takes a screenshot of every test and stores it under
 5. **Report**: write the two files below. Do this even when you ran out of time for some items.
 6. **Check**: run `npm run check`. It tells you when `output/results.json` isn't valid JSON or misses a
    field. Fix the file until the check passes; you are not done before that.
-7. **Improve the project files** (only when needed). If a project file was missing something or was wrong,
-   and that cost you a failed attempt (a login step, a locator, a route, test data), write an improved copy
-   of that whole file to `output/instructions/<same file name>`, changing only what fixes the problem, for
-   example the locator that finally worked. Also write `output/instructions/REASON.md`: per change, what
-   failed, what you changed, and the test that proves it. Skip this step when nothing failed because of the
-   project files; never just reword them. A person reviews your suggestion before it's used.
 
 ## `output/results.json`
 
