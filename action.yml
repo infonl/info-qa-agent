@@ -6,6 +6,18 @@ inputs:
   app-url:
     description: "URL of the test environment the agent tests against"
     required: true
+  username:
+    description: "Username of the test user; the agent's tests read it as QA_USERNAME"
+    default: ""
+  password:
+    description: "Password of the test user; the agent's tests read it as QA_PASSWORD"
+    default: ""
+  username-2:
+    description: "Optional second test user (QA_USERNAME_2)"
+    default: ""
+  password-2:
+    description: "Password of the optional second test user (QA_PASSWORD_2)"
+    default: ""
   scope:
     description: "What to test: yesterday | <N>d | since:YYYY-MM-DD. yesterday is the previous working day."
     default: "yesterday"
@@ -19,7 +31,7 @@ inputs:
     description: "Browser locale for the tests, e.g. nl-NL"
     default: "en-US"
   project-dir:
-    description: "Folder in the repository with the project's instructions.md, helpers.ts, smoke.spec.ts and optional cleanup.spec.ts"
+    description: "Folder in the repository with the project's markdown instructions; cleanup.md in it is used after the run"
     default: ".qa-agent"
   base-branch:
     description: "Branch the PRs are merged into"
@@ -63,14 +75,15 @@ runs:
         PROJECT_DIR: ${{ inputs.project-dir }}
         WORK: ${{ github.workspace }}/.qa-agent-run
       run: |
-        for file in instructions.md helpers.ts smoke.spec.ts; do
-          [[ -f "$PROJECT_DIR/$file" ]] || { echo "::error::$PROJECT_DIR/$file is missing, see the README of info-qa-agent"; exit 1; }
-        done
         rm -rf "$WORK"
-        mkdir -p "$WORK/tests" "$WORK/output"
+        mkdir -p "$WORK/tests" "$WORK/output" "$WORK/project"
         cp -R "$GITHUB_ACTION_PATH/runner/." "$WORK/"
-        cp "$GITHUB_ACTION_PATH/instructions/AGENT.md" "$WORK/AGENT.md"
-        cp -R "$PROJECT_DIR" "$WORK/project"
+        cp "$GITHUB_ACTION_PATH/instructions/AGENT.md" "$GITHUB_ACTION_PATH/instructions/CLEANUP.md" "$WORK/"
+        if compgen -G "$PROJECT_DIR/*.md" > /dev/null; then
+          cp "$PROJECT_DIR"/*.md "$WORK/project/"
+        else
+          echo "::warning::No markdown instructions in $PROJECT_DIR; the agent learns the application from its source."
+        fi
         echo "QA_AGENT_WORK=$WORK" >> "$GITHUB_ENV"
 
     - name: Gather merged PRs and tickets
@@ -116,12 +129,16 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         QA_APP_URL: ${{ inputs.app-url }}
         QA_LOCALE: ${{ inputs.locale }}
+        QA_USERNAME: ${{ inputs.username }}
+        QA_PASSWORD: ${{ inputs.password }}
+        QA_USERNAME_2: ${{ inputs.username-2 }}
+        QA_PASSWORD_2: ${{ inputs.password-2 }}
         MODEL: ${{ inputs.model }}
         LANGUAGE: ${{ inputs.language }}
         SINCE: ${{ steps.gather.outputs.since }}
         UNTIL: ${{ steps.gather.outputs.until }}
-      # Copilot CLI can only allow file writes as a whole, not per folder. So the cleanup is restored from
-      # git before it runs, and the report action runs in a separate job on a fresh runner.
+      # Copilot CLI can only allow file writes as a whole, not per folder. So the cleanup instructions are
+      # restored from git before the cleanup runs, and the report action runs in a separate job.
       # There is deliberately no --max-ai-credits: with it, the model kept skipping tests to save budget.
       # The timeout of the calling job caps the cost instead.
       run: |
@@ -142,17 +159,42 @@ runs:
           || echo "::warning::The QA agent ended with an error; the report shows what it finished."
 
     - name: Clean up the test data of the run
-      if: always() && steps.gather.outputs.pr_count != '0' && hashFiles(format('{0}/cleanup.spec.ts', inputs.project-dir)) != ''
+      if: always() && steps.gather.outputs.pr_count != '0' && hashFiles(format('{0}/cleanup.md', inputs.project-dir)) != ''
       shell: bash
+      working-directory: ${{ github.workspace }}/.qa-agent-run
       env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
         PROJECT_DIR: ${{ inputs.project-dir }}
         QA_APP_URL: ${{ inputs.app-url }}
         QA_LOCALE: ${{ inputs.locale }}
-      # The cleanup comes from git, not from files the agent may have changed.
+        QA_USERNAME: ${{ inputs.username }}
+        QA_PASSWORD: ${{ inputs.password }}
+        MODEL: ${{ inputs.model }}
+      # The cleanup instructions come from git, not from files the agent may have changed.
       run: |
-        git checkout HEAD -- "$PROJECT_DIR"
-        rm -rf "$QA_AGENT_WORK/project" && cp -R "$PROJECT_DIR" "$QA_AGENT_WORK/project"
-        cd "$QA_AGENT_WORK" && npm run cleanup || echo "::warning::The cleanup of the test data failed."
+        git -C "$GITHUB_WORKSPACE" checkout HEAD -- "$PROJECT_DIR/cleanup.md"
+        cp "$GITHUB_WORKSPACE/$PROJECT_DIR/cleanup.md" project/cleanup.md
+        cp "$GITHUB_ACTION_PATH/instructions/CLEANUP.md" CLEANUP.md
+        mkdir -p cleanup
+        copilot -p "Read CLEANUP.md and follow it. You are done when cleanup/cleanup.spec.ts exists." \
+          --add-dir "$GITHUB_WORKSPACE" \
+          --model "$MODEL" \
+          --allow-tool='write, shell(npm run:*)' \
+          --no-ask-user \
+          --no-custom-instructions \
+          --disable-builtin-mcps \
+          --no-auto-update \
+          --usage-output-file output/cleanup-usage.json \
+          --share output/cleanup-session.md \
+          || echo "::warning::The cleanup session ended with an error; see output/cleanup-session.md."
+        # Run the script once more here: the model doesn't always run it itself, and the script only touches
+        # records that are still there, so a second run is harmless.
+        if compgen -G "cleanup/*.spec.ts" > /dev/null; then
+          npm run cleanup 2>&1 | tee output/cleanup-log.txt \
+            || echo "::warning::The cleanup script failed; see output/cleanup-log.txt."
+        else
+          echo "::warning::The cleanup session wrote no script." | tee output/cleanup-log.txt
+        fi
 
     - name: Upload the report, screenshots and tests
       if: always() && steps.gather.outputs.pr_count != '0'
@@ -165,3 +207,4 @@ runs:
           ${{ github.workspace }}/.qa-agent-run/context/manifest.md
           ${{ github.workspace }}/.qa-agent-run/context/skipped.json
           ${{ github.workspace }}/.qa-agent-run/tests/
+          ${{ github.workspace }}/.qa-agent-run/cleanup/

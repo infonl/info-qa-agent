@@ -2,7 +2,14 @@
 
 <!-- Replace everything below. Keep it short and factual: the agent reads it at the start of every run. -->
 
-ACME Portal is a web app where customers manage their orders. The UI is React, in English.
+ACME Portal is a web app where customers manage their orders. The UI is React, in English. The labels are
+in `src/locales/en.json`.
+
+## Logging in
+
+- Open `/login`, fill "Email" and "Password", click "Sign in". The dashboard shows afterwards.
+- `QA_USERNAME` is a normal customer with a few orders. `QA_USERNAME_2` is an admin: it can open `/admin`,
+  but never save anything there.
 
 ## Pages
 
@@ -10,23 +17,15 @@ ACME Portal is a web app where customers manage their orders. The UI is React, i
 |---|---|
 | `/` | Dashboard |
 | `/orders`, `/orders/<id>` | Order list and detail |
+| `/orders/new` | Create an order |
 | `/settings` | Account settings |
-
-## Test users
-
-| Helper name | What it can do |
-|---|---|
-| `customer` | A normal customer with a few orders |
-| `admin` | Can open `/admin`, look but never save |
 
 ## Test data
 
-- Create orders with `createOrder(page, { description })` from `helpers.ts`; the description gets the
-  prefix "QA Agent", and the cleanup removes those orders after the run.
+- Create orders at `/orders/new`. Always start the description with "QA Agent:", so the cleanup finds them.
 - Create as few orders as you can: one per spec file, in `test.beforeAll`.
 
 ## Project rules
 
 - Never change data you didn't create in this run.
 - Never send e-mail to a real address; use `@example.com`.
-- The labels of the UI are in `src/locales/en.json`.
