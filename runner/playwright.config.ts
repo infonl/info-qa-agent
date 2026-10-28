@@ -1,4 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
+import fs from "fs";
+
+// When the project's globalSetup.ts saved a session for user 1, every test starts logged in with it.
+const user1Session = "auth/user1.json";
 
 export default defineConfig({
   testDir: ".",
@@ -15,6 +19,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.QA_APP_URL,
     locale: process.env.QA_LOCALE || "en-US",
+    storageState: fs.existsSync(user1Session) ? user1Session : undefined,
     screenshot: "on",
     trace: "off",
   },

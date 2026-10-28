@@ -14,8 +14,9 @@ the run.
 
 It supports testers; it never blocks a merge or a release. An honest "needs a human" is a valid outcome.
 
-**Plugging it into a project takes no code**: a short workflow, a test user, and a markdown file that
-tells the agent about your application.
+**Plugging it into a project takes a short workflow, a test user, and a `.qa-agent/` folder**: a markdown
+file that tells the agent about your application, plus optional Playwright hooks for what must work the
+same every time, such as logging in and cleaning up.
 
 ## How it works
 
@@ -23,11 +24,12 @@ tells the agent about your application.
 QA job                                                               report job (fresh runner)
 ┌──────────────────────────────────────────────────────────────┐     ┌────────────────────────────┐
 │ 1 gather: merged PRs, diffs, Jira tickets (a script, no AI)  │     │ job summary (full report)  │
-│ 2 agent: reads your .qa-agent/*.md, logs in, triages,        │ ──► │ Slack message              │
-│          writes and runs Playwright tests, writes a report   │     └────────────────────────────┘
-│ 3 cleanup: a second session writes a script from cleanup.md, │
-│            and the action runs it                            │
-│ 4 upload: report, screenshots, tests; passwords scrubbed     │
+│ 2 globalSetup.ts: your code, e.g. log in and save sessions   │ ──► │ Slack message              │
+│ 3 agent: reads .qa-agent/instructions.md, triages, writes    │     │ optional: draft PR with    │
+│          and runs Playwright tests (beforeEach.ts and        │     │ better instructions        │
+│          afterEach.ts around each), writes a report          │     └────────────────────────────┘
+│ 4 globalTeardown.ts: your code, e.g. clean up test data      │
+│ 5 upload: report, screenshots, tests; passwords scrubbed     │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -35,8 +37,8 @@ QA job                                                               report job 
   account or API key is needed.
 - Dependency updates (Renovate, Dependabot) and PRs that don't touch application code are skipped before
   the agent starts, so they cost nothing.
-- Everything about your application lives in your own repository, as markdown in a `.qa-agent/` folder.
-  The agent writes all the code it needs itself: the login, the tests, the cleanup.
+- Everything about your application lives in your own repository, in a `.qa-agent/` folder: knowledge as
+  markdown, and the steps that must be reliable as Playwright code. The agent writes the tests itself.
 
 ## What you need
 
@@ -53,23 +55,57 @@ QA job                                                               report job 
 
 ## Setup
 
-### 1. Describe your application in `.qa-agent/instructions.md`
+### 1. Add a `.qa-agent/` folder
 
-Copy [`examples/.qa-agent/`](examples/.qa-agent) to the root of your repository and rewrite it. It's plain
-markdown; the agent reads every `.md` file in the folder at the start of a run.
+Copy [`examples/.qa-agent/`](examples/.qa-agent) to the root of your repository and rewrite it. Every
+file is optional; the agent works without them too, by reading your README and source, but slower and less
+accurately.
 
-| File | What |
-|---|---|
-| `instructions.md` | What the application is, **how to log in**, the main pages, the test users and what they may do, how to create test data, and what never to touch. |
-| `cleanup.md` | Optional, recommended. Which test data to remove or close after a run, and how (pages or API calls). After every run, even a failed one, a short second agent session writes a cleanup script from it, and the action runs that script. |
+| File | When it runs | What it's for |
+|---|---|---|
+| `instructions.md` | read by the agent at the start | What the application is, its main pages, the test users and what they may do, how to create test data, and what never to touch. Any other `.md` file in the folder is read too. |
+| `globalSetup.ts` | once, before the agent | Log in and save sessions, prepare data. **When it fails, the agent doesn't run**, and the report says it couldn't prepare. |
+| `globalTeardown.ts` | once, after the agent, also when it crashed | Clean up the test data the agent created. |
+| `beforeEach.ts` | before every test the agent writes | For example open a starting page, or dismiss a cookie banner. |
+| `afterEach.ts` | after every test the agent writes | For example check that no error dialog is open. |
 
-The agent works without these files too, by reading your README and source, but slower and less accurately.
+Use code for what must work the same every run, and markdown for everything the agent should know. The names
+and signatures are Playwright's own:
 
-Tips, learned from the first runs:
+```ts
+// globalSetup.ts and globalTeardown.ts: like Playwright's globalSetup and globalTeardown
+import type { FullConfig } from "@playwright/test";
+export default async function globalSetup(config: FullConfig) {
+  const { baseURL, locale } = config.projects[0].use; // the app-url and locale of the workflow
+  // ... launch a browser with chromium.launch(), log in, save sessions
+}
 
-- **Describe the login step by step**: the URL, the field labels and the button. The agent writes its login
-  from it, and checks it first; when the login fails, it reports "I couldn't log in today" instead of a
-  list of false failures.
+// beforeEach.ts and afterEach.ts: the arguments of Playwright's test.beforeEach and test.afterEach
+import type { Page, TestInfo } from "@playwright/test";
+export default async function beforeEach({ page }: { page: Page }, testInfo: TestInfo) {
+  // ...
+}
+```
+
+The hooks run in a folder next to the agent's tests, so they can import each other (for example a shared
+`login`), but not other files of your repository.
+
+**Logging in.** The recommended `globalSetup.ts` logs in each test user and saves their session as
+`auth/user1.json` and `auth/user2.json` (see the example). Every test then starts logged in as user 1; a
+test switches to user 2 with `test.use({ storageState: "auth/user2.json" })`. Neither the agent nor its
+tests get the passwords. Without these sessions, the agent writes a login itself from `instructions.md` and
+its tests read the passwords from `QA_PASSWORD` and `QA_PASSWORD_2`.
+
+**Cleaning up.** `globalTeardown.ts` always runs, even after a crash, from the version in git, so the agent
+can't change it. Log in fresh there: a session saved by `globalSetup` may expire during a long run. Make it
+safe to run twice, and end with a line like "Closed 4 of 4 test records"; the summary shows that line.
+
+The credentials are environment variables for the hooks: `QA_USERNAME`, `QA_PASSWORD`, and for a second user
+`QA_USERNAME_2`, `QA_PASSWORD_2`. The agent's tests import `test` and `expect` from the action's fixtures,
+which is how `beforeEach.ts` and `afterEach.ts` reach every test; you don't need to do anything for that.
+
+Tips for `instructions.md`, learned from the first runs:
+
 - **Give exact locators for tricky flows**, such as a form with icons, comboboxes that load slowly or
   elements with the same text. Plain steps are enough for most pages, but for these the agent loses its
   attempts on guessing. A line like ``page.locator("div").filter({ hasText: /^person$/ }).click()`` is still
@@ -78,10 +114,10 @@ Tips, learned from the first runs:
 - **Say where the UI labels are**, for example the translation file for the browser locale you test with.
 - **Be honest about the rights of the test users.** If you don't know them exactly, say so. The agent then
   marks "users without right X" tickets as needs-human instead of reporting a false bug.
-- **Mark test data clearly**, for example with a "QA Agent:" prefix, so the cleanup can find it and your
+- **Mark test data clearly**, for example with a "QA Agent:" prefix, so `globalTeardown.ts` can find it and your
   team recognizes it.
 - **Keep the agent creating little data**: say "one record per spec file, in `test.beforeAll`".
-- **Mention delays in `cleanup.md`**, for example when a search index updates a few seconds later.
+- **Wait for delays in `globalTeardown.ts`**, for example when a search index updates a few seconds later.
 - **Never mention cost or budget.** A small model takes it literally and starts skipping tests.
 
 ### 2. Add secrets
@@ -223,8 +259,10 @@ The job summary shows the credits and model calls of every run.
 
 ## Security
 
-- **Credentials.** The test users' credentials are environment variables for the tests the agent writes;
-  the agent never sees their values. Use test users that only exist on the test environment. Jira
+- **Credentials.** With a `globalSetup.ts` that saves sessions, only your hooks get the test users'
+  passwords; the agent and its tests don't. Without it, the passwords are environment variables for the
+  tests the agent writes, but the agent itself never sees their values. Use test users that only exist on
+  the test environment. Jira
   credentials are only used before the agent starts, and the Slack webhook only exists in the separate
   report job. The workflow token is redacted from the agent's output.
 - **Evidence.** Playwright traces and the HTML report would record the password the login fills in, so
@@ -234,7 +272,7 @@ The job summary shows the credits and model calls of every run.
   `npm run`, and use the read-only shell commands Copilot CLI allows by default (`cat`, `ls`, `tail`).
   Commands that change or delete files, URL fetching and Copilot's built-in GitHub tools are off.
   Copilot CLI can't limit file writes to a folder, so:
-  - `cleanup.md` is restored from git before the cleanup session reads it;
+  - the `.qa-agent/` files are restored from git before `globalTeardown.ts` runs;
   - the report runs on a fresh runner;
   - an instruction suggestion only takes over `.md` files with plain names into `.qa-agent/`, as a draft
     PR that a person reviews;
@@ -251,10 +289,10 @@ The job summary shows the credits and model calls of every run.
 |---|---|
 | `Model "…" from --model flag is not available` | The model isn't enabled in the organization's Copilot policies. |
 | The run is green but Slack says it didn't finish | The agent didn't produce valid results; see `output/session.md` in the artifact. |
-| "I couldn't log in today" | Check the credentials, and describe the login more precisely in `instructions.md`. |
+| "I couldn't log in or prepare the test environment" | `globalSetup.ts` failed; see `output/global-setup-log.txt` in the artifact. Without `globalSetup.ts`: describe the login more precisely in `instructions.md`. |
 | `merge commit of #… not found` | The checkout is shallow; use `fetch-depth: 0`. |
 | The agent marks most items "not tested" | Something in the instructions mentions cost or limits. Remove it. |
-| The cleanup misses records | Say in `cleanup.md` how to find them, and mention delays such as a search index. See `output/cleanup-log.txt` and `output/cleanup-session.md`. |
+| The cleanup misses records | See `output/global-teardown-log.txt`; check how `globalTeardown.ts` finds them, and wait for delays such as a search index. |
 | The agent's tests fail on labels | Tell it in `instructions.md` where the labels are and which locale the tests use. |
 
 ## Updating

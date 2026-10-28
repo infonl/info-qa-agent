@@ -13,9 +13,9 @@ You don't know exactly which rights the test users have. When a ticket is about 
 right, a test user may well have that right; if the result could be explained by that, mark it
 `needs-human` instead of `fail`.
 
-**Read the project's markdown files in `project/` first** (except `cleanup.md`, which is for later). They
-describe the application, how to log in, its pages, test data and project rules. Where they differ from
-this file, the project files win. Without them, learn the application from its README and source.
+**Read the project's markdown files in `project/` first.** They describe the application, its pages, test
+users, test data and project rules. Where they differ from this file, the project files win. Without them,
+learn the application from its README and source.
 
 ## What you have
 
@@ -30,6 +30,8 @@ prompt.
 | `context/jira/<KEY>.json` | Ticket text, when the project uses Jira. For a sub-task, `parent_description` holds the story. |
 | The repository root | Source at the merged state. Read it to find labels and routes; never change it. |
 | `project/*.md` | About this application, written by its team. |
+| `project/*.ts` | The project's own code, such as helpers you may import. `globalSetup.ts`, `globalTeardown.ts`, `beforeEach.ts` and `afterEach.ts` are run for you; don't call them. |
+| `auth/user1.json`, `auth/user2.json` | Saved login sessions, when the project's `globalSetup.ts` made them. |
 
 ## Your tools
 
@@ -44,10 +46,20 @@ prompt.
 Commands that delete or change files, like `rm`, are refused. You never need them: the runner is thrown
 away after the run, so there is nothing to clean up. A refused command only refuses that one command:
 `npm run test` and `npm run check` always work, so always run them, even after another command was refused.
-The application URL is Playwright's `baseURL`, so use relative URLs in `page.goto`. The test users'
-credentials are environment variables for the tests: `QA_USERNAME` and `QA_PASSWORD`, and for a second
-user, if the project has one, `QA_USERNAME_2` and `QA_PASSWORD_2`. Read them with `process.env` in test
-code; you can't and don't need to see their values.
+The application URL is Playwright's `baseURL`, so use relative URLs in `page.goto`.
+
+Every spec imports `test` and `expect` from the fixtures, never from `@playwright/test` directly, so the
+project's `beforeEach.ts` and `afterEach.ts` run around each test:
+
+```ts
+import { test, expect } from "../fixtures";
+```
+
+**Logging in.** When `auth/user1.json` exists, every test starts logged in as user 1; don't log in
+yourself. For user 2, add `test.use({ storageState: "auth/user2.json" });` to the spec. Without saved
+sessions, the credentials are environment variables for the tests: `QA_USERNAME` and `QA_PASSWORD`, and
+for a second user `QA_USERNAME_2` and `QA_PASSWORD_2`. Read them with `process.env` in test code; you
+can't and don't need to see their values.
 
 Playwright already takes a screenshot of every test and stores it under
 `output/test-results/`. Don't call `page.screenshot` with a path of your own; for an extra screenshot, use
@@ -66,13 +78,13 @@ Playwright already takes a screenshot of every test and stores it under
 
 ## Steps
 
-0. **Login and smoke test**: write `tests/login.ts` with an exported `login(page, user)` that follows the
-   login instructions of the project, with `user` being `1` or `2` for the two sets of credentials. Then
-   write `tests/smoke.spec.ts`: log in and check that the first page after login shows. Run it with
-   `npm run test -- tests/smoke.spec.ts`; fix a wrong locator at most twice. If it still fails, the
-   environment or the login is broken: skip step 2 and 3, mark every `test` and `smoke` item
-   `needs-human`, and make the Slack message one sentence saying you couldn't log in today, so nothing
-   was tested. Don't ask people to click through everything. All later tests log in with `login`.
+0. **Smoke test**: write `tests/smoke.spec.ts` that opens the first page after login and checks it shows.
+   With saved sessions that's all; without them, first write `tests/login.ts` with an exported
+   `login(page, user)` that follows the login instructions of the project (`user` is `1` or `2`), use it
+   in the smoke test, and in every later test. Run it with `npm run test -- tests/smoke.spec.ts`; fix a
+   wrong locator at most twice. If it still fails, the environment or the login is broken: skip step 2
+   and 3, mark every `test` and `smoke` item `needs-human`, and make the Slack message one sentence saying
+   you couldn't log in today, so nothing was tested. Don't ask people to click through everything.
 1. **Triage** (no browser yet). For each PR in the manifest, decide in one line:
    - `test`: a user can see the change in the UI (new or changed screen, button, text, error page, list behaviour)
    - `smoke`: a refactor or library upgrade of frontend code; one quick test of an affected page is enough,
