@@ -49,7 +49,7 @@ credentials are environment variables for the tests: `QA_USERNAME` and `QA_PASSW
 user, if the project has one, `QA_USERNAME_2` and `QA_PASSWORD_2`. Read them with `process.env` in test
 code; you can't and don't need to see their values.
 
-Playwright already takes a screenshot of every test and stores it, with the trace of a failing test, under
+Playwright already takes a screenshot of every test and stores it under
 `output/test-results/`. Don't call `page.screenshot` with a path of your own; for an extra screenshot, use
 `page.screenshot({ path: test.info().outputPath("<name>.png") })`.
 
@@ -93,7 +93,7 @@ Playwright already takes a screenshot of every test and stores it, with the trac
    - app bug (behaviour contradicts the ticket): keep the test as is and describe the bug
    - unclear (ticket ambiguous): `needs-human`, explain what a person should check
 4. **Final run**: run all tests once more with `npm run test`, without a file name. Every run clears the
-   screenshots and traces of the run before it, so the report must use the results and screenshot paths
+   screenshots of the run before it, so the report must use the results and screenshot paths
    under `output/test-results/` from this final run.
 5. **Report**: write the two files below. Do this even when you ran out of time for some items.
 6. **Check**: run `npm run check`. It tells you when `output/results.json` isn't valid JSON or misses a

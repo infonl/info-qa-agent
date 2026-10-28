@@ -26,7 +26,9 @@ else
   KEY_RE='\b[A-Z][A-Z0-9]{1,9}-[0-9]+\b'
 fi
 
+payload=""
 if [[ -f "$RESULTS" ]] && jq -e '.slack_message | type == "string" and length > 0' "$RESULTS" > /dev/null 2>&1; then
+  # Any failure here falls back to the warning below, so a broken results file never goes unreported.
   payload=$(jq --arg run "$RUN_URL" --arg jira "${JIRA_BASE_URL:-}" --arg key_re "$KEY_RE" '
     def escape: gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;");
     def link_tickets:
@@ -38,8 +40,9 @@ if [[ -f "$RESULTS" ]] && jq -e '.slack_message | type == "string" and length > 
         blocks: [
           { type: "section", text: { type: "mrkdwn", text: "\($message | link_tickets) <\($run)|Read my full report here>." } }
         ]
-      }' "$RESULTS")
-else
+      }' "$RESULTS") || payload=""
+fi
+if [[ -z "$payload" ]]; then
   payload=$(jq -n --arg run "$RUN_URL" '{
     text: "My QA run did not finish today.",
     blocks: [

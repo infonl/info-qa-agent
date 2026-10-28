@@ -9,7 +9,7 @@ to Slack:
 > rest were backend refactors, nothing to click there. [Read my full report here](#).
 
 The link opens the full report in GitHub: a verdict per ticket, the bugs with steps and screenshots, and
-what a person should still check. The tests the agent wrote, with screenshots and traces, are attached to
+what a person should still check. The tests the agent wrote, with screenshots, are attached to
 the run.
 
 It supports testers; it never blocks a merge or a release. An honest "needs a human" is a valid outcome.
@@ -27,7 +27,7 @@ QA job                                                               report job 
 │          writes and runs Playwright tests, writes a report   │     └────────────────────────────┘
 │ 3 cleanup: a second session writes a script from cleanup.md, │
 │            and the action runs it                            │
-│ 4 upload: report, screenshots, traces, tests                 │
+│ 4 upload: report, screenshots, tests; passwords scrubbed     │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -227,6 +227,9 @@ The job summary shows the credits and model calls of every run.
   the agent never sees their values. Use test users that only exist on the test environment. Jira
   credentials are only used before the agent starts, and the Slack webhook only exists in the separate
   report job. The workflow token is redacted from the agent's output.
+- **Evidence.** Playwright traces and the HTML report would record the password the login fills in, so
+  neither is produced. Before upload, the action replaces the test users' passwords with asterisks in every
+  file of the evidence: test results, specs, the agent's transcripts and the cleanup log.
 - **What the agent can do.** Read the repository, create and edit files, run its tests through
   `npm run`, and use the read-only shell commands Copilot CLI allows by default (`cat`, `ls`, `tail`).
   Commands that change or delete files, URL fetching and Copilot's built-in GitHub tools are off.

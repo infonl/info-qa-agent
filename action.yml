@@ -196,6 +196,15 @@ runs:
           echo "::warning::The cleanup session wrote no script." | tee output/cleanup-log.txt
         fi
 
+    - name: Remove credentials from the evidence
+      if: always() && steps.gather.outputs.pr_count != '0'
+      shell: bash
+      working-directory: ${{ github.workspace }}/.qa-agent-run
+      env:
+        QA_PASSWORD: ${{ inputs.password }}
+        QA_PASSWORD_2: ${{ inputs.password-2 }}
+      run: node "$GITHUB_ACTION_PATH/scripts/scrub-secrets.mjs" output tests cleanup
+
     - name: Upload the report, screenshots and tests
       if: always() && steps.gather.outputs.pr_count != '0'
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
