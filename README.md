@@ -177,7 +177,8 @@ action directly in your own job instead: copy
 - `fetch-depth: 0` on the checkout, so the diffs can be read;
 - the **separate report job**. The agent can write anywhere on its own runner, so the Slack webhook must
   only exist on a fresh one;
-- clearing any cloud login before the action runs (see Security).
+- no credentials on the runner when the action starts, and privileged steps after it in a separate job
+  (see Security).
 
 ### 6. First run
 
@@ -265,11 +266,9 @@ The job summary shows the credits and model calls of every run.
   - the `.qa-agent/` files are restored from git before `globalTeardown.ts` runs;
   - the report runs on a fresh runner;
   - nothing in the agent's job pushes or deploys.
-- **Cloud logins.** Tests the agent writes can run any program on the runner, and can even change which
-  programs later steps run (for example through `$GITHUB_PATH`). If your setup logs in to a cloud (for
-  example to open a firewall), clear that login before the action runs (`az account clear`), and never
-  log in on that runner again: close the firewall from a separate job on a fresh runner, as in
-  [`examples/workflow-with-setup.yml`](examples/workflow-with-setup.yml).
+- **Your own privileged steps.** Tests the agent writes can run any program on its runner, and can change
+  what later steps there run. So remove any credentials your setup steps leave on the runner before the
+  action starts, and run privileged steps after the agent, such as undoing your setup, in a separate job.
 - **Input.** PR descriptions and tickets reach the agent as input. The setup trusts the people who write
   them; don't run it on repositories that accept PRs from outsiders without review.
 
