@@ -7,8 +7,12 @@ to Slack:
 > Morning! I tested yesterday's changes on dev. The new error page for the inbox works nicely, but the
 > document card still overlaps the side menu on a narrow screen (ABC-1234), could someone take a look? The
 > rest were backend refactors, nothing to click there. [Read my full report here](#).
+>
+> <sub>🐞 ABC-1234 Document card overlaps the side menu<br>✅ ABC-1236 New error page for the inbox<br>
+> Not testable in the browser: ABC-1237, ABC-1238</sub>
 
-The link opens the full report in GitHub: a verdict per ticket, the bugs with steps and screenshots, and
+Below the message, a short overview lists every ticket with its verdict, worst first. The link opens the
+full report in GitHub: a verdict per ticket, the bugs with steps and screenshots, and
 what a person should still check. The tests the agent wrote, with screenshots, are attached to
 the run.
 
