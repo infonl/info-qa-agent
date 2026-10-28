@@ -265,9 +265,11 @@ The job summary shows the credits and model calls of every run.
   - the `.qa-agent/` files are restored from git before `globalTeardown.ts` runs;
   - the report runs on a fresh runner;
   - nothing in the agent's job pushes or deploys.
-- **Cloud logins.** Tests the agent writes can run any program on the runner. If your setup logs in to a
-  cloud (for example to open a firewall), clear that login before the action runs (`az account clear`)
-  and log in again afterwards.
+- **Cloud logins.** Tests the agent writes can run any program on the runner, and can even change which
+  programs later steps run (for example through `$GITHUB_PATH`). If your setup logs in to a cloud (for
+  example to open a firewall), clear that login before the action runs (`az account clear`), and never
+  log in on that runner again: close the firewall from a separate job on a fresh runner, as in
+  [`examples/workflow-with-setup.yml`](examples/workflow-with-setup.yml).
 - **Input.** PR descriptions and tickets reach the agent as input. The setup trusts the people who write
   them; don't run it on repositories that accept PRs from outsiders without review.
 
