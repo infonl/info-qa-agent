@@ -2,12 +2,11 @@ import { defineConfig, devices } from "@playwright/test";
 import os from "os";
 import path from "path";
 
-// A config of its own, so the cleanup never clears the screenshots and reports of the agent run.
-// Runs the scripts the cleanup session writes from the project's cleanup.md.
+// Runs globalSetup.ts and globalTeardown.ts of the project, outside the agent's test results.
 export default defineConfig({
-  testDir: "cleanup",
-  testMatch: "**/*.spec.ts",
-  outputDir: path.join(os.tmpdir(), "qa-agent-cleanup"),
+  testDir: "lifecycle",
+  testMatch: "hook.spec.ts",
+  outputDir: path.join(os.tmpdir(), "qa-agent-lifecycle"),
   timeout: 10 * 60_000,
   retries: 0,
   workers: 1,
