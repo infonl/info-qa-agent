@@ -21,6 +21,9 @@ inputs:
   model:
     description: "Model of the run, shown in the summary"
     default: "claude-haiku-5.5"
+  language:
+    description: "Language of the fixed Slack texts, such as the report link: Dutch or English"
+    default: "English"
 
 runs:
   using: composite
@@ -52,4 +55,5 @@ runs:
         SLACK_WEBHOOK_URL: ${{ inputs.slack-webhook-url }}
         JIRA_BASE_URL: ${{ inputs.jira-base-url }}
         JIRA_PROJECT_KEYS: ${{ inputs.jira-project-keys }}
+        LANGUAGE: ${{ inputs.language }}
       run: bash "$GITHUB_ACTION_PATH/../scripts/post-slack.sh"

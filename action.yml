@@ -133,13 +133,17 @@ runs:
         QA_PASSWORD: ${{ inputs.password }}
         QA_USERNAME_2: ${{ inputs.username-2 }}
         QA_PASSWORD_2: ${{ inputs.password-2 }}
+        LANGUAGE: ${{ inputs.language }}
       # When it fails, the agent doesn't run; the report says it couldn't prepare the test environment.
       run: |
         if ! npm run global-setup 2>&1 | tee output/global-setup-log.txt; then
           echo "failed=true" >> "$GITHUB_OUTPUT"
           echo "::warning::globalSetup failed; see output/global-setup-log.txt. The agent doesn't run."
-          printf '%s\n' '{"slack_message": "I couldn'"'"'t log in or prepare the test environment today, so I didn'"'"'t test anything.",' \
-            ' "tickets": []}' > output/results.json
+          case "$(tr '[:upper:]' '[:lower:]' <<< "$LANGUAGE")" in
+            dutch | nederlands | nl*) message="Ik kon vandaag niet inloggen of de testomgeving niet klaarzetten, dus ik heb niets getest." ;;
+            *) message="I couldn't log in or prepare the test environment today, so I didn't test anything." ;;
+          esac
+          jq -n --arg message "$message" '{slack_message: $message, tickets: []}' > output/results.json
           printf '## No QA run today\n\nThe globalSetup of the project failed, so the agent did not run. See `output/global-setup-log.txt` in the artifact.\n' \
             > output/report.md
         fi

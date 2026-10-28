@@ -127,3 +127,4 @@ jobs:
           jira-project-keys: ${{ inputs.jira-project-keys }}
           scope: ${{ inputs.scope }}
           model: ${{ inputs.model }}
+          language: ${{ inputs.language }}

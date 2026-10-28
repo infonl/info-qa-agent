@@ -7,8 +7,12 @@ to Slack:
 > Morning! I tested yesterday's changes on dev. The new error page for the inbox works nicely, but the
 > document card still overlaps the side menu on a narrow screen (ABC-1234), could someone take a look? The
 > rest were backend refactors, nothing to click there. [Read my full report here](#).
+>
+> <sub>🐞 ABC-1234 Document card overlaps the side menu<br>✅ ABC-1236 New error page for the inbox<br>
+> Not testable in the browser: ABC-1237, ABC-1238</sub>
 
-The link opens the full report in GitHub: a verdict per ticket, the bugs with steps and screenshots, and
+Below the message, a short overview lists every ticket with its verdict, worst first. The link opens the
+full report in GitHub: a verdict per ticket, the bugs with steps and screenshots, and
 what a person should still check. The tests the agent wrote, with screenshots, are attached to
 the run.
 
@@ -210,7 +214,7 @@ Secrets: `username`, `password`, `username-2`, `password-2`, `jira-email`, `jira
 | `username-2`, `password-2` | empty | Optional second test user, as `QA_USERNAME_2` and `QA_PASSWORD_2`. |
 | `scope` | `yesterday` | `yesterday` (the previous working day; on Monday Friday to Sunday), `<N>d`, or `since:YYYY-MM-DD`. |
 | `model` | `claude-haiku-5.5` | Copilot model. `claude-sonnet-5.5` is stronger and about 20 times more expensive. |
-| `language` | `English` | Language of the Slack message. |
+| `language` | `English` | Language of the Slack message. With `Dutch`, the fixed texts are Dutch too. |
 | `locale` | `en-US` | Browser locale of the tests, e.g. `nl-NL`. |
 | `project-dir` | `.qa-agent` | Folder with your markdown files. |
 | `base-branch` | `main` | Branch the PRs are merged into. |
@@ -230,6 +234,7 @@ Output: `pr-count`, the number of PRs the agent tested. When it is `0`, nothing 
 | `slack-webhook-url` | empty | Without it, only the job summary is written. |
 | `jira-base-url`, `jira-project-keys` | empty | Turns ticket keys in the Slack message into links. |
 | `scope`, `model` | | Shown in the summary. |
+| `language` | `English` | Language of the fixed Slack texts, such as the report link: `Dutch` or `English`. Use the same value as in the main action. |
 
 ## Cost
 
