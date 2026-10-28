@@ -46,8 +46,8 @@ jobs:
           fetch-depth: 0
 
       # ADJUST: add the steps your test environment needs before it can be reached, e.g. opening a
-      # firewall. Then clear any cloud login (e.g. az account clear): tests the agent writes can run any
-      # program on this runner. Close the firewall in the close-firewall job below, never on this runner.
+      # firewall. Remove any credentials they leave on the runner, and undo them in a separate job (see the
+      # Security section of the README).
 
       - uses: infonl/info-qa-agent@v1 # pin a commit SHA in production
         id: qa
@@ -64,17 +64,6 @@ jobs:
           jira-project-keys: ABC # ADJUST or remove
           jira-email: ${{ secrets.QA_AGENT_JIRA_EMAIL }}
           jira-api-token: ${{ secrets.QA_AGENT_JIRA_API_TOKEN }}
-
-  # ADJUST or remove: undo your setup steps here, on a fresh runner. The agent's tests may have changed
-  # anything on their own runner, including the programs a login there would use.
-  close-firewall:
-    needs: qa-agent
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: test # ADJUST
-    steps:
-      - run: echo "Log in and remove the firewall rule by its name here."
 
   report:
     needs: qa-agent
