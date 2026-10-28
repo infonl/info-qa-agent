@@ -76,13 +76,13 @@ runs:
         WORK: ${{ github.workspace }}/.qa-agent-run
       run: |
         rm -rf "$WORK"
-        mkdir -p "$WORK/tests" "$WORK/output" "$WORK/project"
+        mkdir -p "$WORK/tests" "$WORK/output" "$WORK/project" "$WORK/auth"
         cp -R "$GITHUB_ACTION_PATH/runner/." "$WORK/"
-        cp "$GITHUB_ACTION_PATH/instructions/AGENT.md" "$GITHUB_ACTION_PATH/instructions/CLEANUP.md" "$WORK/"
-        if compgen -G "$PROJECT_DIR/*.md" > /dev/null; then
-          cp "$PROJECT_DIR"/*.md "$WORK/project/"
+        cp "$GITHUB_ACTION_PATH/instructions/AGENT.md" "$WORK/"
+        if [[ -d "$PROJECT_DIR" ]]; then
+          cp -R "$PROJECT_DIR/." "$WORK/project/"
         else
-          echo "::warning::No markdown instructions in $PROJECT_DIR; the agent learns the application from its source."
+          echo "::warning::No $PROJECT_DIR folder; the agent learns the application from its source."
         fi
         echo "QA_AGENT_WORK=$WORK" >> "$GITHUB_ENV"
 
@@ -121,8 +121,31 @@ runs:
         QA_APP_URL: ${{ inputs.app-url }}
       run: curl -sS -o /dev/null --fail --max-time 30 --retry 3 "$QA_APP_URL"
 
+    - name: Run the project's globalSetup
+      id: setup
+      if: steps.gather.outputs.pr_count != '0' && hashFiles(format('{0}/globalSetup.ts', inputs.project-dir)) != ''
+      shell: bash
+      working-directory: ${{ github.workspace }}/.qa-agent-run
+      env:
+        QA_APP_URL: ${{ inputs.app-url }}
+        QA_LOCALE: ${{ inputs.locale }}
+        QA_USERNAME: ${{ inputs.username }}
+        QA_PASSWORD: ${{ inputs.password }}
+        QA_USERNAME_2: ${{ inputs.username-2 }}
+        QA_PASSWORD_2: ${{ inputs.password-2 }}
+      # When it fails, the agent doesn't run; the report says it couldn't prepare the test environment.
+      run: |
+        if ! npm run global-setup 2>&1 | tee output/global-setup-log.txt; then
+          echo "failed=true" >> "$GITHUB_OUTPUT"
+          echo "::warning::globalSetup failed; see output/global-setup-log.txt. The agent doesn't run."
+          printf '%s\n' '{"slack_message": "I couldn'"'"'t log in or prepare the test environment today, so I didn'"'"'t test anything.",' \
+            ' "tickets": []}' > output/results.json
+          printf '## No QA run today\n\nThe globalSetup of the project failed, so the agent did not run. See `output/global-setup-log.txt` in the artifact.\n' \
+            > output/report.md
+        fi
+
     - name: Run the QA agent
-      if: steps.gather.outputs.pr_count != '0'
+      if: steps.gather.outputs.pr_count != '0' && steps.setup.outputs.failed != 'true'
       shell: bash
       working-directory: ${{ github.workspace }}/.qa-agent-run
       env:
@@ -137,11 +160,15 @@ runs:
         LANGUAGE: ${{ inputs.language }}
         SINCE: ${{ steps.gather.outputs.since }}
         UNTIL: ${{ steps.gather.outputs.until }}
-      # Copilot CLI can only allow file writes as a whole, not per folder. So the cleanup instructions are
-      # restored from git before the cleanup runs, and the report action runs in a separate job.
+      # Copilot CLI can only allow file writes as a whole, not per folder. So globalTeardown is restored from
+      # git before it runs, and the report action runs in a separate job.
       # There is deliberately no --max-ai-credits: with it, the model kept skipping tests to save budget.
       # The timeout of the calling job caps the cost instead.
       run: |
+        # With saved sessions from globalSetup, the tests start logged in and need no passwords at all.
+        if compgen -G "auth/*.json" > /dev/null; then
+          unset QA_PASSWORD QA_PASSWORD_2
+        fi
         copilot -p "Run a QA pass for the PRs merged from $SINCE to $UNTIL.
         Your working directory holds the QA files; the repository of the application is $GITHUB_WORKSPACE.
         Read AGENT.md and follow it. The gathered context is in context/manifest.md.
@@ -158,43 +185,24 @@ runs:
           --share output/session.md \
           || echo "::warning::The QA agent ended with an error; the report shows what it finished."
 
-    - name: Clean up the test data of the run
-      if: always() && steps.gather.outputs.pr_count != '0' && hashFiles(format('{0}/cleanup.md', inputs.project-dir)) != ''
+    - name: Run the project's globalTeardown
+      if: always() && steps.gather.outputs.pr_count != '0' && hashFiles(format('{0}/globalTeardown.ts', inputs.project-dir)) != ''
       shell: bash
       working-directory: ${{ github.workspace }}/.qa-agent-run
       env:
-        GITHUB_TOKEN: ${{ inputs.github-token }}
         PROJECT_DIR: ${{ inputs.project-dir }}
         QA_APP_URL: ${{ inputs.app-url }}
         QA_LOCALE: ${{ inputs.locale }}
         QA_USERNAME: ${{ inputs.username }}
         QA_PASSWORD: ${{ inputs.password }}
-        MODEL: ${{ inputs.model }}
-      # The cleanup instructions come from git, not from files the agent may have changed.
+        QA_USERNAME_2: ${{ inputs.username-2 }}
+        QA_PASSWORD_2: ${{ inputs.password-2 }}
+      # The project files come from git, not from files the agent may have changed.
       run: |
-        git -C "$GITHUB_WORKSPACE" checkout HEAD -- "$PROJECT_DIR/cleanup.md"
-        cp "$GITHUB_WORKSPACE/$PROJECT_DIR/cleanup.md" project/cleanup.md
-        cp "$GITHUB_ACTION_PATH/instructions/CLEANUP.md" CLEANUP.md
-        mkdir -p cleanup
-        copilot -p "Read CLEANUP.md and follow it. You are done when cleanup/cleanup.spec.ts exists." \
-          --add-dir "$GITHUB_WORKSPACE" \
-          --model "$MODEL" \
-          --allow-tool='write, shell(npm run:*)' \
-          --no-ask-user \
-          --no-custom-instructions \
-          --disable-builtin-mcps \
-          --no-auto-update \
-          --usage-output-file output/cleanup-usage.json \
-          --share output/cleanup-session.md \
-          || echo "::warning::The cleanup session ended with an error; see output/cleanup-session.md."
-        # Run the script once more here: the model doesn't always run it itself, and the script only touches
-        # records that are still there, so a second run is harmless.
-        if compgen -G "cleanup/*.spec.ts" > /dev/null; then
-          npm run cleanup 2>&1 | tee output/cleanup-log.txt \
-            || echo "::warning::The cleanup script failed; see output/cleanup-log.txt."
-        else
-          echo "::warning::The cleanup session wrote no script." | tee output/cleanup-log.txt
-        fi
+        git -C "$GITHUB_WORKSPACE" checkout HEAD -- "$PROJECT_DIR"
+        rm -rf project && mkdir project && cp -R "$GITHUB_WORKSPACE/$PROJECT_DIR/." project/
+        npm run global-teardown 2>&1 | tee output/global-teardown-log.txt \
+          || echo "::warning::globalTeardown failed; see output/global-teardown-log.txt."
 
     - name: Remove credentials from the evidence
       if: always() && steps.gather.outputs.pr_count != '0'
@@ -203,7 +211,7 @@ runs:
       env:
         QA_PASSWORD: ${{ inputs.password }}
         QA_PASSWORD_2: ${{ inputs.password-2 }}
-      run: node "$GITHUB_ACTION_PATH/scripts/scrub-secrets.mjs" output tests cleanup
+      run: node "$GITHUB_ACTION_PATH/scripts/scrub-secrets.mjs" output tests
 
     - name: Upload the report, screenshots and tests
       if: always() && steps.gather.outputs.pr_count != '0'
@@ -216,4 +224,3 @@ runs:
           ${{ github.workspace }}/.qa-agent-run/context/manifest.md
           ${{ github.workspace }}/.qa-agent-run/context/skipped.json
           ${{ github.workspace }}/.qa-agent-run/tests/
-          ${{ github.workspace }}/.qa-agent-run/cleanup/
