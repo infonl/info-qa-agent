@@ -78,7 +78,7 @@ if [[ -f "$RESULTS" ]] && jq -e '.slack_message | type == "string" and length > 
         blocks: (
           [ { type: "section", text: { type: "mrkdwn", text: "\($message | link_tickets) <\($run)|\($report_link)>." } } ]
           + (if ($overview | length) > 0 then
-              [ { type: "context", elements: [ { type: "mrkdwn", text: ($overview | join("\n")) } ] } ]
+              [ { type: "section", text: { type: "mrkdwn", text: ($overview | join("\n")) } } ]
             else [] end)
         )
       }' "$RESULTS") || payload=""
