@@ -21,15 +21,6 @@ inputs:
   model:
     description: "Model of the run, shown in the summary"
     default: "claude-haiku-5.5"
-  suggest-instructions:
-    description: "Open a draft PR with the agent's suggested improvements to the project's markdown files. The job needs contents: write and pull-requests: write."
-    default: "false"
-  project-dir:
-    description: "Folder with the project's markdown files"
-    default: ".qa-agent"
-  github-token:
-    description: "Token for opening the suggestion PR"
-    default: ${{ github.token }}
 
 runs:
   using: composite
@@ -62,21 +53,3 @@ runs:
         JIRA_BASE_URL: ${{ inputs.jira-base-url }}
         JIRA_PROJECT_KEYS: ${{ inputs.jira-project-keys }}
       run: bash "$GITHUB_ACTION_PATH/../scripts/post-slack.sh"
-
-    - name: Check out the project for the instruction suggestions
-      if: inputs.suggest-instructions == 'true'
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        path: qa-agent-project
-        token: ${{ inputs.github-token }}
-
-    - name: Suggest improvements to the instructions
-      if: inputs.suggest-instructions == 'true'
-      shell: bash
-      env:
-        GH_TOKEN: ${{ inputs.github-token }}
-        SUGGESTIONS_DIR: ${{ runner.temp }}/qa-agent-report/output/instructions
-        REPO_DIR: ${{ github.workspace }}/qa-agent-project
-        PROJECT_DIR: ${{ inputs.project-dir }}
-        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      run: bash "$GITHUB_ACTION_PATH/../scripts/suggest-instructions.sh" || echo "::warning::Opening the instruction suggestion PR failed."

@@ -175,19 +175,7 @@ action directly in your own job instead: copy
   only exist on a fresh one;
 - clearing any cloud login before the action runs (see Security).
 
-### 6. Let the agent improve its instructions (optional)
-
-When a project file was missing something or was wrong, and that cost the agent a failed attempt, it can
-propose a fix: the report action then opens a draft PR that changes only `.qa-agent/*.md`, with what failed
-and why in the description. Every run updates the same PR instead of opening a new one. A person always
-reviews and merges it.
-
-Turn it on with `suggest-instructions: true` on the report action, and give the report job
-`contents: write` and `pull-requests: write`. The repository setting "Allow GitHub Actions to create and
-approve pull requests" (Settings → Actions → General) must be on. This works with the actions directly
-(`workflow-with-setup.yml`), not yet with the reusable workflow.
-
-### 7. First run
+### 6. First run
 
 The "Run workflow" button only appears once the workflow is on the default branch. To try it from a branch
 first, add a temporary trigger and remove it before merging:
@@ -242,9 +230,6 @@ Output: `pr-count`, the number of PRs the agent tested. When it is `0`, nothing 
 | `slack-webhook-url` | empty | Without it, only the job summary is written. |
 | `jira-base-url`, `jira-project-keys` | empty | Turns ticket keys in the Slack message into links. |
 | `scope`, `model` | | Shown in the summary. |
-| `suggest-instructions` | `false` | Open a draft PR with the agent's suggested improvements to the markdown files; see setup step 6. |
-| `project-dir` | `.qa-agent` | Folder with the markdown files, for the suggestions. |
-| `github-token` | `github.token` | Token for the suggestion PR. |
 
 ## Cost
 
@@ -274,8 +259,6 @@ The job summary shows the credits and model calls of every run.
   Copilot CLI can't limit file writes to a folder, so:
   - the `.qa-agent/` files are restored from git before `globalTeardown.ts` runs;
   - the report runs on a fresh runner;
-  - an instruction suggestion only takes over `.md` files with plain names into `.qa-agent/`, as a draft
-    PR that a person reviews;
   - nothing in the agent's job pushes or deploys.
 - **Cloud logins.** Tests the agent writes can run any program on the runner. If your setup logs in to a
   cloud (for example to open a firewall), clear that login before the action runs (`az account clear`)
