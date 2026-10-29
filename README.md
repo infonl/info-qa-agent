@@ -1,18 +1,24 @@
 # INFO QA agent
 
 An AI teammate for your testers. Every weekday morning it looks at the pull requests merged the day before,
-reads their tickets, tests the changes in the browser on your test environment, and posts a short message
-to Slack:
+reads their tickets, tests the changes in the browser on your test environment, and tells your team in
+Slack, ticket by ticket, worst first:
 
-> Morning! I tested yesterday's changes on dev. The new error page for the inbox works nicely, but the
-> document card still overlaps the side menu on a narrow screen (ABC-1234), could someone take a look? The
-> rest were backend refactors, nothing to click there. [Read my full report here](#).
+> Morning! This is what I clicked through on dev yesterday.
 >
-> <sub>🐞 ABC-1234 Document card overlaps the side menu<br>✅ ABC-1236 New error page for the inbox<br>
-> Not testable in the browser: ABC-1237, ABC-1238</sub>
+> 🐞 **ABC-1234  Document card overlaps the side menu**<br>
+> I opened a case with a document and made the screen narrower. From 900px wide the document card covers
+> the side menu, so the 'Edit' button disappears. Could someone take a look? There's a screenshot in the
+> report.
+>
+> ✅ **ABC-1236  New error page for the inbox**<br>
+> I opened the inbox as a user without the right and got the new error page instead of an empty list.
+>
+> Not testable in the browser: ABC-1237, ABC-1238
+>
+> [Read my full report here](#)
 
-Below the message, a short overview lists every ticket with its verdict, worst first. The link opens the
-full report in GitHub: a verdict per ticket, the bugs with steps and screenshots, and
+The link opens the full report in GitHub: a verdict per ticket, the bugs with steps and screenshots, and
 what a person should still check. The tests the agent wrote, with screenshots, are attached to
 the run.
 
