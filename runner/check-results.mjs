@@ -26,6 +26,10 @@ if (!Array.isArray(results.tickets) || results.tickets.length === 0) {
       problems.push(`tickets[${index}].verdict must be one of ${verdicts.join(", ")}`);
     }
     if (typeof ticket.summary_line !== "string") problems.push(`tickets[${index}].summary_line must be a string`);
+    const explained = typeof ticket.explanation === "string" && ticket.explanation.trim() !== "";
+    if (ticket.verdict !== "not-testable" && !explained) {
+      problems.push(`tickets[${index}].explanation must be 2 to 4 sentences for Slack`);
+    }
   });
 }
 

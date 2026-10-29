@@ -64,22 +64,34 @@ if [[ -f "$RESULTS" ]] && jq -e '.slack_message | type == "string" and length > 
     def title: (.title // "" | tostring | escape) as $t | if ($t | length) > 70 then $t[0:69] + "…" else $t end;
     def icon: {"fail": ":beetle:", "needs-human": ":eyes:", "pass": ":white_check_mark:"}[.verdict] // ":grey_question:";
     def rank: {"fail": 0, "needs-human": 1, "pass": 2}[.verdict] // 3;
+    def explanation:
+      ((.explanation // "") | tostring) as $e
+      | (if ($e | length) > 0 then $e else (.summary_line // "" | tostring) end)
+      | escape | link_tickets
+      | if length > 1500 then .[0:1499] + "…" else . end;
+    # Slack allows 3000 characters per section, so the items are spread over as many sections as needed.
+    def sections:
+      reduce .[] as $item ([];
+        if length == 0 then [$item]
+        elif ((.[-1] + "\n\n" + $item) | length) > 2900 then . + [$item]
+        else .[:-1] + [.[-1] + "\n\n" + $item] end)
+      | map({ type: "section", text: { type: "mrkdwn", text: . } });
 
     (.slack_message | escape) as $message
     | [.tickets[]? | objects] as $tickets
     | [$tickets[] | select(.verdict != "not-testable")] | sort_by(rank) as $tested
-    | ([$tested[:15][] | "\(icon) \(name)  \(title)"]
+    | ([$tested[:15][] | "\(icon) *\(name)  \(title)*" + (explanation | if . == "" then "" else "\n" + . end)]
        + (if ($tested | length) > 15 then [$more | sub("%s"; "\(($tested | length) - 15)")] else [] end)
        + ([$tickets[] | select(.verdict == "not-testable") | name] | if length > 0 then ["\($not_testable): \(join(", "))"] else [] end)
-      ) as $overview
+      ) as $items
     | {
         text: $message,
+        # Opening, then every ticket with its explanation, then the link to the full report at the bottom.
         # A link, not a button: a button shows a warning in Slack unless the app has interactivity set up.
         blocks: (
-          [ { type: "section", text: { type: "mrkdwn", text: "\($message | link_tickets) <\($run)|\($report_link)>." } } ]
-          + (if ($overview | length) > 0 then
-              [ { type: "section", text: { type: "mrkdwn", text: ($overview | join("\n")) } } ]
-            else [] end)
+          [ { type: "section", text: { type: "mrkdwn", text: ($message | link_tickets) } } ]
+          + ($items | sections)
+          + [ { type: "section", text: { type: "mrkdwn", text: "<\($run)|\($report_link)>" } } ]
         )
       }' "$RESULTS") || payload=""
 fi

@@ -122,7 +122,8 @@ Playwright already takes a screenshot of every test and stores it under
       "prs": [1234],
       "title": "short title",
       "verdict": "pass | fail | needs-human | not-testable",
-      "summary_line": "one line: what you checked, the bug, or what a person should check"
+      "summary_line": "one line: what you checked, the bug, or what a person should check",
+      "explanation": "2 to 4 sentences for Slack, see below; may be empty for not-testable"
     }
   ]
 }
@@ -130,22 +131,28 @@ Playwright already takes a screenshot of every test and stores it under
 
 Verdicts: `pass` only when you saw it work. Any app bug is `fail`. Untested or unclear is `needs-human`.
 
-### `slack_message`
+### The Slack message
 
-This is posted to the team's Slack channel as is, as if from a teammate. Write it in the language given in
-the prompt. Rules:
+The team's Slack channel gets your `slack_message`, then every ticket with its `explanation`, then a link to
+your full report. Write both in the language given in the prompt, as a colleague would: in the first person
+("I opened ..."), plain words, never about "the QA bot" or "Claude". Name tickets by key (`ABC-1234`); they
+become links. Don't paste URLs.
 
-- write in the first person ("I clicked through ..."), never about "the QA bot" or "Claude"
-- 2 to 5 short sentences, plain words, no headings, no tables, no bullet lists, at most one emoji
-- start with what matters most: a bug first, then what needs a person, then what works
-- name tickets by key (`ABC-1234`), they become links; don't paste URLs
-- don't explain how you tested, and don't list every ticket; a link to your full report is added after the message
-- sound like a colleague, not a robot: "Yesterday's new error page works nicely" beats
-  "Verification of ABC-1234 completed successfully"
+`slack_message` is the opening: one or two sentences, for example "Morning! This is what I clicked through
+on dev yesterday." Don't describe tickets in it; they follow below it.
 
-Example: "Morning! I clicked through yesterday's changes. The new error page works nicely, but the card on
-the detail page still overlaps the side menu on a narrow screen (ABC-1234), could someone take a look? The
-rest were backend refactors, nothing to click there."
+`explanation`, per ticket, is 2 to 4 sentences: what you did, what you saw, and for a bug or a needs-human
+what a person should do. Concrete beats general:
+
+- bug: "I opened a zaak with a document and made the screen narrower. From 900px wide the document card
+  covers the side menu, so the 'Edit' button disappears. On a wide screen it's fine. Could someone take a
+  look? There's a screenshot in the report."
+- needs-human: "The ticket says you can't edit a colleague's note. My two test users are in different groups,
+  so I couldn't create a shared zaak with a note by the other one. Please check this by hand."
+- pass: "I opened the parameters of a zaaktype and looked at the mail and termination steps. The tables are
+  aligned now, also on a narrower screen."
+
+For `not-testable` tickets an empty explanation is fine; they're listed together on one line.
 
 ## `output/report.md`
 
