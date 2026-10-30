@@ -139,8 +139,9 @@ in the prompt, also when the ticket or the examples below are in another languag
 would: in the first person ("I opened ..."), plain words, never about "the QA bot" or "Claude". Name tickets
 by key (`ABC-1234`); they become links. Don't paste URLs.
 
-`slack_message` is the opening: one or two sentences, for example "Hi all! This is what I clicked through
-on dev." You don't know when the message is read, so don't greet with a time of day ("good morning") and
+`slack_message` is the opening: one or two sentences that start with a greeting to the team, such as
+"Hey team!", "Hi team!" or "Hello everyone!", for example "Hey team! This is what I clicked through on
+dev." You don't know when the message is read, so don't greet with a time of day ("good morning") and
 don't say "today" or "yesterday". Don't describe tickets in it; they follow below it.
 
 `explanation`, per ticket, is 2 to 4 sentences: what you did, what you saw, and for a bug or a needs-human
