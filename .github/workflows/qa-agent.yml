@@ -41,6 +41,10 @@ on:
       jira-project-keys:
         type: string
         default: ""
+      slack-channel:
+        description: "Slack channel ID (or name) to post in; invite the bot to it"
+        type: string
+        default: ""
       timeout-minutes:
         description: "Caps the duration, and so the cost, of a run"
         type: number
@@ -58,7 +62,7 @@ on:
         required: false
       jira-api-token:
         required: false
-      slack-webhook-url:
+      slack-bot-token:
         required: false
 
 jobs:
@@ -105,7 +109,7 @@ jobs:
           jira-email: ${{ secrets.jira-email }}
           jira-api-token: ${{ secrets.jira-api-token }}
 
-  # The agent can write anywhere on its own runner, so the Slack webhook is only used here, on a fresh one.
+  # The agent can write anywhere on its own runner, so the Slack token is only used here, on a fresh one.
   report:
     needs: qa-agent
     if: always() && needs.qa-agent.outputs.pr-count != '0'
@@ -122,7 +126,8 @@ jobs:
 
       - uses: ./.qa-agent-action/report
         with:
-          slack-webhook-url: ${{ secrets.slack-webhook-url }}
+          slack-bot-token: ${{ secrets.slack-bot-token }}
+          slack-channel: ${{ inputs.slack-channel }}
           jira-base-url: ${{ inputs.jira-base-url }}
           jira-project-keys: ${{ inputs.jira-project-keys }}
           scope: ${{ inputs.scope }}

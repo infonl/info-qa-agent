@@ -74,7 +74,8 @@ jobs:
     steps:
       - uses: infonl/info-qa-agent/report@v1 # pin the same commit SHA as above
         with:
-          slack-webhook-url: ${{ (github.event_name != 'workflow_dispatch' || inputs.post_to_slack) && secrets.QA_AGENT_SLACK_WEBHOOK_URL || '' }}
+          slack-bot-token: ${{ (github.event_name != 'workflow_dispatch' || inputs.post_to_slack) && secrets.QA_AGENT_SLACK_BOT_TOKEN || '' }}
+          slack-channel: C0123456789 # ADJUST: the channel ID
           jira-base-url: https://example.atlassian.net # ADJUST or remove
           jira-project-keys: ABC # ADJUST or remove
           scope: ${{ inputs.scope || 'yesterday' }}

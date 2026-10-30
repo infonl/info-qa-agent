@@ -3,11 +3,14 @@ description: "Writes the report of an INFO QA agent run to the job summary and p
 author: "INFO"
 
 # Run this in a separate job (needs: <the QA agent job>, if: always()). The agent can write anywhere on
-# its own runner, so the Slack webhook must never be available there.
+# its own runner, so the Slack token must never be available there.
 
 inputs:
-  slack-webhook-url:
-    description: "Slack incoming webhook; without it, only the job summary is written"
+  slack-bot-token:
+    description: "Slack bot token with the chat:write scope; without it, only the job summary is written"
+    default: ""
+  slack-channel:
+    description: "Slack channel ID (or name) to post in; invite the bot to it"
     default: ""
   jira-base-url:
     description: "Optional Jira Cloud URL; turns ticket keys in the Slack message into links"
@@ -52,7 +55,8 @@ runs:
       shell: bash
       working-directory: ${{ runner.temp }}/qa-agent-report
       env:
-        SLACK_WEBHOOK_URL: ${{ inputs.slack-webhook-url }}
+        SLACK_BOT_TOKEN: ${{ inputs.slack-bot-token }}
+        SLACK_CHANNEL: ${{ inputs.slack-channel }}
         JIRA_BASE_URL: ${{ inputs.jira-base-url }}
         JIRA_PROJECT_KEYS: ${{ inputs.jira-project-keys }}
         LANGUAGE: ${{ inputs.language }}

@@ -137,7 +137,7 @@ On the repository (or the environment the workflow uses):
 | Secret | What |
 |---|---|
 | `QA_USERNAME`, `QA_PASSWORD` | The test user. Optionally `QA_USERNAME_2`, `QA_PASSWORD_2` for a second one. |
-| `QA_AGENT_SLACK_WEBHOOK_URL` | Optional, see step 3. |
+| `QA_AGENT_SLACK_BOT_TOKEN` | Optional, see step 3. |
 | `QA_AGENT_JIRA_EMAIL`, `QA_AGENT_JIRA_API_TOKEN` | Optional, see step 4. |
 
 The agent's tests read the credentials from environment variables; the agent itself never sees the values.
@@ -146,12 +146,15 @@ The agent's tests read the credentials from environment variables; the agent its
 
 1. At [api.slack.com/apps](https://api.slack.com/apps): **Create New App → From scratch**, and give it a
    name and an avatar (Basic Information → Display Information).
-2. **Incoming Webhooks** → on → **Add New Webhook to Workspace** → pick the channel. This adds the only
-   scope the app needs, `incoming-webhook`. If your workspace requires approval for apps, an admin approves
-   it first.
-3. Save the webhook URL as the secret `QA_AGENT_SLACK_WEBHOOK_URL`.
+2. **App Home** → **App Display Name** → give the bot a display name.
+3. **OAuth & Permissions** → **Bot Token Scopes** → add `chat:write`, the only scope the action needs.
+4. **Install to Workspace**. If your workspace requires approval for apps, an admin approves it first.
+5. Save the **Bot User OAuth Token** (`xoxb-…`) as the secret `QA_AGENT_SLACK_BOT_TOKEN`.
+6. Invite the bot to the channel (`/invite @<bot name>`) and set the input `slack-channel` to the channel ID
+   (channel details → About, at the bottom). The ID keeps working when the channel is renamed.
 
-Without the webhook, the report still appears in the job summary.
+One app and token can serve several projects; each project picks its own channel. Without the token, the
+report still appears in the job summary.
 
 ### 4. Jira (optional)
 
@@ -181,7 +184,7 @@ action directly in your own job instead: copy
 [`examples/workflow-with-setup.yml`](examples/workflow-with-setup.yml). Keep:
 
 - `fetch-depth: 0` on the checkout, so the diffs can be read;
-- the **separate report job**. The agent can write anywhere on its own runner, so the Slack webhook must
+- the **separate report job**. The agent can write anywhere on its own runner, so the Slack token must
   only exist on a fresh one;
 - no credentials on the runner when the action starts, and privileged steps after it in a separate job
   (see Security).
@@ -197,8 +200,8 @@ on:
     branches: [your-branch] # TEMPORARY
 ```
 
-Every push to that branch then starts a run. Leave Slack out of the first runs (don't set the webhook
-secret yet), read the job summary and the agent's transcript (`output/session.md` in the artifact), and
+Every push to that branch then starts a run. Leave Slack out of the first runs (don't set the Slack
+token yet), read the job summary and the agent's transcript (`output/session.md` in the artifact), and
 tune `instructions.md` until the report is something your testers trust.
 
 ## Inputs
@@ -206,11 +209,11 @@ tune `instructions.md` until the report is something your testers trust.
 ### Reusable workflow `infonl/info-qa-agent/.github/workflows/qa-agent.yml`
 
 Inputs: `app-url` (required), `scope`, `model`, `language`, `locale`, `project-dir`, `base-branch`,
-`app-paths`, `max-prs`, `jira-base-url`, `jira-project-keys` (as for the action below), and
-`timeout-minutes` (default 60).
+`app-paths`, `max-prs`, `jira-base-url`, `jira-project-keys` (as for the action below), `slack-channel`
+(as for the report action), and `timeout-minutes` (default 60).
 
 Secrets: `username`, `password`, `username-2`, `password-2`, `jira-email`, `jira-api-token`,
-`slack-webhook-url`, all optional.
+`slack-bot-token`, all optional.
 
 ### Action `infonl/info-qa-agent`
 
@@ -238,7 +241,8 @@ Output: `pr-count`, the number of PRs the agent tested. When it is `0`, nothing 
 
 | Input | Default | What |
 |---|---|---|
-| `slack-webhook-url` | empty | Without it, only the job summary is written. |
+| `slack-bot-token` | empty | Bot token with `chat:write`. Without it, only the job summary is written. |
+| `slack-channel` | empty | Channel ID (or name) to post in. Invite the bot to it first. |
 | `jira-base-url`, `jira-project-keys` | empty | Turns ticket keys in the Slack message into links. |
 | `scope`, `model` | | Shown in the summary. |
 | `language` | `English` | Language of the fixed Slack texts, such as the report link: `Dutch` or `English`. Use the same value as in the main action. |
@@ -260,7 +264,7 @@ The job summary shows the credits and model calls of every run.
   passwords; the agent and its tests don't. Without it, the passwords are environment variables for the
   tests the agent writes, but the agent itself never sees their values. Use test users that only exist on
   the test environment. Jira
-  credentials are only used before the agent starts, and the Slack webhook only exists in the separate
+  credentials are only used before the agent starts, and the Slack token only exists in the separate
   report job. The workflow token is redacted from the agent's output.
 - **Evidence.** Playwright traces and the HTML report would record the password the login fills in, so
   neither is produced. Before upload, the action replaces the test users' passwords with asterisks in every

@@ -3,7 +3,8 @@
 # A run without results still posts a short warning, so a broken run never looks like a quiet day.
 #
 # Env:
-#   SLACK_WEBHOOK_URL   incoming webhook; without it, nothing is posted
+#   SLACK_BOT_TOKEN     bot token with chat:write; without it, nothing is posted
+#   SLACK_CHANNEL       channel ID (or name) to post in; the bot must be a member
 #   SLACK_DRY_RUN=true  print the payload instead of posting it
 #   JIRA_BASE_URL       optional, turns ticket keys into links
 #   JIRA_PROJECT_KEYS   optional, comma separated; limits which keys become links
@@ -35,9 +36,15 @@ esac
 # shellcheck disable=SC2059 # the format string is one of the two fixed texts above
 FAILED_LONG=$(printf "$FAILED_LONG" "$RUN_URL")
 
-if [[ -z "${SLACK_WEBHOOK_URL:-}" && "${SLACK_DRY_RUN:-false}" != "true" ]]; then
-  echo "No Slack webhook, skipping Slack."
-  exit 0
+if [[ "${SLACK_DRY_RUN:-false}" != "true" ]]; then
+  if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
+    echo "No Slack bot token, skipping Slack."
+    exit 0
+  fi
+  if [[ -z "${SLACK_CHANNEL:-}" ]]; then
+    echo "warn: a Slack bot token but no channel, skipping Slack" >&2
+    exit 0
+  fi
 fi
 
 if [[ -n "${JIRA_PROJECT_KEYS:-}" ]]; then
@@ -102,13 +109,19 @@ if [[ -z "$payload" ]]; then
   }')
 fi
 
+payload=$(jq --arg channel "${SLACK_CHANNEL:-}" '. + {channel: $channel}' <<< "$payload")
+
 if [[ "${SLACK_DRY_RUN:-false}" == "true" ]]; then
   echo "$payload"
   exit 0
 fi
 
-if curl -sS --fail-with-body -X POST -H "Content-Type: application/json" --data "$payload" "$SLACK_WEBHOOK_URL" > /dev/null; then
+# Slack answers most errors, such as a bot that isn't in the channel, with 200 and "ok": false.
+response=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+  -H "Authorization: Bearer $SLACK_BOT_TOKEN" -H "Content-Type: application/json; charset=utf-8" \
+  --data "$payload") || response=""
+if jq -e '.ok == true' <<< "$response" > /dev/null 2>&1; then
   echo "Posted to Slack."
 else
-  echo "warn: posting to Slack failed" >&2
+  echo "warn: posting to Slack failed: $(jq -r '.error // "no response"' <<< "$response" 2>/dev/null || echo "no response")" >&2
 fi

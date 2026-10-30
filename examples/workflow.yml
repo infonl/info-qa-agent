@@ -21,9 +21,10 @@ jobs:
       app-paths: "^src/" # ADJUST: which files count as application code
       jira-base-url: https://example.atlassian.net # ADJUST or remove
       jira-project-keys: ABC # ADJUST or remove
+      slack-channel: C0123456789 # ADJUST or remove: the channel ID
     secrets:
       username: ${{ secrets.QA_USERNAME }}
       password: ${{ secrets.QA_PASSWORD }}
       jira-email: ${{ secrets.QA_AGENT_JIRA_EMAIL }}
       jira-api-token: ${{ secrets.QA_AGENT_JIRA_API_TOKEN }}
-      slack-webhook-url: ${{ secrets.QA_AGENT_SLACK_WEBHOOK_URL }}
+      slack-bot-token: ${{ secrets.QA_AGENT_SLACK_BOT_TOKEN }}
