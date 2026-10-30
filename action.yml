@@ -176,7 +176,7 @@ runs:
         copilot -p "Run a QA pass for the PRs merged from $SINCE to $UNTIL.
         Your working directory holds the QA files; the repository of the application is $GITHUB_WORKSPACE.
         Read AGENT.md and follow it. The gathered context is in context/manifest.md.
-        Write the Slack message in $LANGUAGE.
+        Write slack_message and the title and explanation of every ticket in $LANGUAGE.
         You are done when output/report.md exists and npm run check passes." \
           --add-dir "$GITHUB_WORKSPACE" \
           --model "$MODEL" \

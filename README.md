@@ -4,7 +4,7 @@ An AI teammate for your testers. Every weekday morning it looks at the pull requ
 reads their tickets, tests the changes in the browser on your test environment, and tells your team in
 Slack, ticket by ticket, worst first:
 
-> Morning! This is what I clicked through on dev yesterday.
+> Hi all! This is what I clicked through on dev.
 >
 > 🐞 **ABC-1234  Document card overlaps the side menu**<br>
 > I opened a case with a document and made the screen narrower. From 900px wide the document card covers
