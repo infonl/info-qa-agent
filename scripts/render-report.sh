@@ -26,16 +26,17 @@ case "$(tr '[:upper:]' '[:lower:]' <<< "${LANGUAGE:-English}")" in
   *) HEADERS='| Ticket | Verdict | Note |' ;;
 esac
 
-# A file, not an argument, so many tickets never hit the limit on the length of a command line.
+# Files, not arguments or variables, so many tickets never hit a size limit.
 TITLES=$(mktemp)
-trap 'rm -f "$TITLES"' EXIT
+TABLE=$(mktemp)
+trap 'rm -f "$TITLES" "$TABLE"' EXIT
 find "$CONTEXT/jira" -name '*.json' -exec cat {} + 2> /dev/null \
   | jq -s 'map({(.key): .summary}) | add // {}' > "$TITLES" 2> /dev/null || echo '{}' > "$TITLES"
 [[ -s "$TITLES" ]] || echo '{}' > "$TITLES"
 
 # Keys and verdicts get non-breaking hyphens so they never wrap; text is escaped, so a title such as
 # "Fix <input> validation" shows as text and a | doesn't split the cell.
-table=$(jq -r --arg jira "${JIRA_BASE_URL:-}" --arg repo_url "$REPO_URL" --arg headers "$HEADERS" \
+jq -r --arg jira "${JIRA_BASE_URL:-}" --arg repo_url "$REPO_URL" --arg headers "$HEADERS" \
   --slurpfile titles "$TITLES" '
   def redact: reduce ([$ENV.QA_PASSWORD, $ENV.QA_PASSWORD_2][] | select(type == "string" and length >= 4)) as $s
     (.; split($s) | join($s | gsub("."; "*")));
@@ -63,17 +64,18 @@ table=$(jq -r --arg jira "${JIRA_BASE_URL:-}" --arg repo_url "$REPO_URL" --arg h
       $headers, "|---|---|---|",
       (.[] | "| \(name) | \(icon) \(.verdict // "?" | cell | nowrap) | "
         + (title | if . == "" then "" else "**\(.)**<br>" end) + (.summary_line // "" | cell) + " |")
-    end' "$OUTPUT/results.json")
+    end' "$OUTPUT/results.json" > "$TABLE"
 # No tickets is no table; a results file jq can't read fails the step above, with a warning.
-[[ -n "$table" ]] || exit 0
+[[ -s "$TABLE" ]] || exit 0
 
-# awk also keeps a last line without a newline; ENVIRON keeps the backslashes of the table as they are.
-TABLE="$table" awk '
+# awk also keeps a last line without a newline. The first file is the table, the second the report.
+awk '
+  NR == FNR { table = table (FNR > 1 ? "\n" : "") $0; next }
   { lines[++n] = $0 }
   !at && /^<!-- tickets -->[[:space:]]*$/ { at = n }
   END {
-    if (!at) printf "%s\n\n", ENVIRON["TABLE"]
-    for (i = 1; i <= n; i++) print (i == at ? ENVIRON["TABLE"] : lines[i])
+    if (!at) printf "%s\n\n", table
+    for (i = 1; i <= n; i++) print (i == at ? table : lines[i])
   }
-' "$REPORT" > "$REPORT.tmp"
+' "$TABLE" "$REPORT" > "$REPORT.tmp"
 mv "$REPORT.tmp" "$REPORT"
