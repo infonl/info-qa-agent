@@ -215,6 +215,8 @@ runs:
       env:
         JIRA_BASE_URL: ${{ inputs.jira-base-url }}
         LANGUAGE: ${{ inputs.language }}
+        QA_PASSWORD: ${{ inputs.password }}
+        QA_PASSWORD_2: ${{ inputs.password-2 }}
       run: bash "$GITHUB_ACTION_PATH/scripts/render-report.sh" || echo "::warning::Could not add the table of tickets to the report."
 
     - name: Remove credentials from the evidence

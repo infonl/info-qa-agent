@@ -9,6 +9,7 @@
 #   CONTEXT_DIR     default: context; the Jira tickets in it give the titles
 #   JIRA_BASE_URL   optional, turns ticket keys into links
 #   LANGUAGE        language of the column headers: Dutch, or English (default)
+#   QA_PASSWORD, QA_PASSWORD_2   replaced with asterisks before escaping, which the later scrub can't undo
 #   GITHUB_SERVER_URL, GITHUB_REPOSITORY (set by Actions)
 
 set -euo pipefail
@@ -33,6 +34,10 @@ titles=$(find "$CONTEXT/jira" -name '*.json' -exec cat {} + 2> /dev/null \
 # "Fix <input> validation" shows as text and a | doesn't split the cell.
 table=$(jq -r --arg jira "${JIRA_BASE_URL:-}" --arg repo_url "$REPO_URL" --arg headers "$HEADERS" \
   --argjson titles "$titles" '
+  def redact: reduce ([$ENV.QA_PASSWORD, $ENV.QA_PASSWORD_2][] | select(type == "string" and length >= 4)) as $s
+    (.; split($s) | join($s | gsub("."; "*")));
+  # Passwords go before anything is escaped: an escaped password no longer matches the scrub.
+  ($titles | map_values(tostring | redact)) as $titles |
   def cell: tostring | gsub("[\r\n]+"; " ") | gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;")
     | gsub("\\|"; "\\|");
   def nowrap: gsub("-"; "‑");
@@ -46,7 +51,8 @@ table=$(jq -r --arg jira "${JIRA_BASE_URL:-}" --arg repo_url "$REPO_URL" --arg h
   def title: (if (.key | type) == "string" then $titles[.key] else null end) // .title // "" | tostring | plain | cell;
   def icon: {"fail": "🐞", "needs-human": "👀", "pass": "✅", "not-testable": "➖"}[.verdict] // "❓";
   def rank: {"fail": 0, "needs-human": 1, "pass": 2}[.verdict] // 3;
-  [.tickets[]? | objects] | sort_by(rank)
+  walk(if type == "string" then redact else . end)
+  | [.tickets[]? | objects] | sort_by(rank)
   | if length == 0 then empty else
       $headers, "|---|---|---|",
       (.[] | "| \(name) | \(icon) \(.verdict // "?" | cell | nowrap) | "
