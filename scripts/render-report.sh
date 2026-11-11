@@ -38,7 +38,7 @@ find "$CONTEXT/jira" -name '*.json' -exec cat {} + 2> /dev/null \
 # "Fix <input> validation" shows as text and a | doesn't split the cell.
 jq -r --arg jira "${JIRA_BASE_URL:-}" --arg repo_url "$REPO_URL" --arg headers "$HEADERS" \
   --slurpfile titles "$TITLES" '
-  def redact: reduce ([$ENV.QA_PASSWORD, $ENV.QA_PASSWORD_2][] | select(type == "string" and length >= 4)) as $s
+  def redact: reduce ([$ENV.QA_PASSWORD, $ENV.QA_PASSWORD_2][] | select(type == "string" and length > 0)) as $s
     (.; split($s) | join($s | gsub("."; "*")));
   # Passwords go before anything is escaped: an escaped password no longer matches the scrub.
   # A missing or empty Jira title falls back to the title from the agent.
