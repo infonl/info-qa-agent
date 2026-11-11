@@ -162,7 +162,8 @@ For `not-testable` tickets an empty explanation is fine; they're listed together
 The full report, linked from the Slack message and shown in the GitHub job summary. Keep it scannable:
 
 1. One short paragraph: what you tested and the main result.
-2. A table: ticket | verdict | one-line note.
+2. The line `<!-- tickets -->` on its own. It is replaced by a table of every ticket with its link, title,
+   verdict and `summary_line`, so don't write that table yourself.
 3. Bugs, each with steps, expected, actual, and the screenshot path.
 4. What needs a human, and why.
 5. The spec files you wrote.
