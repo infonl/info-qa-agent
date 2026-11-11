@@ -146,6 +146,9 @@ else
   echo "No Jira credentials, testing from the PR descriptions and diffs only."
 fi
 
+# Ticket titles for the results table in the job summary, which runs without the full ticket texts.
+find "$OUT/jira" -name '*.json' -exec cat {} + | jq -s 'map({(.key): .summary}) | add // {}' > "$OUT/jira-titles.json"
+
 {
   echo "# QA context"
   echo
