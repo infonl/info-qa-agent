@@ -45,7 +45,7 @@ table=$(jq -r --arg jira "${JIRA_BASE_URL:-}" --arg repo_url "$REPO_URL" --arg h
     | gsub("\\|"; "\\|");
   def nowrap: gsub("-"; "‑");
   # Only a real key or PR number goes into a link; anything else could break the row or the link.
-  def key: .key | if type == "string" and test("^[A-Z][A-Z0-9]*-[0-9]+$") then . else null end;
+  def key: .key | if type == "string" and test("^[A-Z][A-Z0-9_]*-[0-9]+$") then . else null end;
   def pr: [.prs[]? | select(type == "number" and . > 0 and . == floor)][0];
   def name:
     if key then
