@@ -208,6 +208,15 @@ runs:
         npm run global-teardown 2>&1 | tee output/global-teardown-log.txt \
           || echo "::warning::globalTeardown failed; see output/global-teardown-log.txt."
 
+    - name: Add the table of tickets to the report
+      if: always() && steps.gather.outputs.pr_count != '0'
+      shell: bash
+      working-directory: ${{ github.workspace }}/.qa-agent-run
+      env:
+        JIRA_BASE_URL: ${{ inputs.jira-base-url }}
+        LANGUAGE: ${{ inputs.language }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/render-report.sh" || echo "::warning::Could not add the table of tickets to the report."
+
     - name: Remove credentials from the evidence
       if: always() && steps.gather.outputs.pr_count != '0'
       shell: bash
@@ -227,5 +236,4 @@ runs:
           ${{ github.workspace }}/.qa-agent-run/output/
           ${{ github.workspace }}/.qa-agent-run/context/manifest.md
           ${{ github.workspace }}/.qa-agent-run/context/skipped.json
-          ${{ github.workspace }}/.qa-agent-run/context/jira-titles.json
           ${{ github.workspace }}/.qa-agent-run/tests/

@@ -10,7 +10,7 @@ inputs:
     description: "Slack incoming webhook; without it, only the job summary is written"
     default: ""
   jira-base-url:
-    description: "Optional Jira Cloud URL; turns ticket keys in Slack and the job summary into links"
+    description: "Optional Jira Cloud URL; turns ticket keys in the Slack message into links"
     default: ""
   jira-project-keys:
     description: "Optional comma separated Jira project keys; limits which keys become links"
@@ -22,7 +22,7 @@ inputs:
     description: "Model of the run, shown in the summary"
     default: "claude-haiku-5.5"
   language:
-    description: "Language of the fixed texts in Slack and the job summary: Dutch or English"
+    description: "Language of the fixed Slack texts, such as the report link: Dutch or English"
     default: "English"
 
 runs:
@@ -46,8 +46,6 @@ runs:
       env:
         SCOPE: ${{ inputs.scope }}
         MODEL: ${{ inputs.model }}
-        JIRA_BASE_URL: ${{ inputs.jira-base-url }}
-        LANGUAGE: ${{ inputs.language }}
       run: bash "$GITHUB_ACTION_PATH/../scripts/post-summary.sh"
 
     - name: Post to Slack
