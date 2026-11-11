@@ -41,7 +41,8 @@ jq -r --arg jira "${JIRA_BASE_URL:-}" --arg repo_url "$REPO_URL" --arg headers "
   def redact: reduce ([$ENV.QA_PASSWORD, $ENV.QA_PASSWORD_2][] | select(type == "string" and length >= 4)) as $s
     (.; split($s) | join($s | gsub("."; "*")));
   # Passwords go before anything is escaped: an escaped password no longer matches the scrub.
-  ($titles[0] | map_values(tostring | redact)) as $titles |
+  # A missing or empty Jira title falls back to the title from the agent.
+  ($titles[0] | map_values(select(type == "string" and length > 0) | redact)) as $titles |
   def cell: tostring | gsub("[\r\n]+"; " ") | gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;")
     | gsub("\\|"; "\\|");
   def nowrap: gsub("-"; "‑");
