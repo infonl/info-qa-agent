@@ -41,7 +41,9 @@ table=$(jq -r --arg jira "${JIRA_BASE_URL:-}" --arg repo_url "$REPO_URL" --arg h
       (if $jira == "" then (.key | nowrap) else "[\(.key | nowrap)](\($jira)/browse/\(.key))" end)
     elif ((.prs // []) | length) > 0 then "[#\(.prs[0])](\($repo_url)/pull/\(.prs[0]))"
     else "?" end;
-  def title: ($titles[.key // ""] // .title // "") | cell;
+  # Titles are plain text, so their Markdown is shown as is; notes may use Markdown on purpose.
+  def plain: gsub("(?<c>[\\\\`*_\\[\\]!#~])"; "\\\(.c)");
+  def title: (if (.key | type) == "string" then $titles[.key] else null end) // .title // "" | tostring | plain | cell;
   def icon: {"fail": "🐞", "needs-human": "👀", "pass": "✅", "not-testable": "➖"}[.verdict] // "❓";
   def rank: {"fail": 0, "needs-human": 1, "pass": 2}[.verdict] // 3;
   [.tickets[]? | objects] | sort_by(rank)
