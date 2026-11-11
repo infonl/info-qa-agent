@@ -49,7 +49,8 @@ table=$(jq -r --arg jira "${JIRA_BASE_URL:-}" --arg repo_url "$REPO_URL" --arg h
       $headers, "|---|---|---|",
       (.[] | "| \(name) | \(icon) \(.verdict // "?" | cell | nowrap) | "
         + (title | if . == "" then "" else "**\(.)**<br>" end) + (.summary_line // "" | cell) + " |")
-    end' "$OUTPUT/results.json" 2> /dev/null) || table=""
+    end' "$OUTPUT/results.json")
+# No tickets is no table; a results file jq can't read fails the step above, with a warning.
 [[ -n "$table" ]] || exit 0
 
 # awk also keeps a last line without a newline; ENVIRON keeps the backslashes of the table as they are.

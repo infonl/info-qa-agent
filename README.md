@@ -221,14 +221,14 @@ Secrets: `username`, `password`, `username-2`, `password-2`, `jira-email`, `jira
 | `username-2`, `password-2` | empty | Optional second test user, as `QA_USERNAME_2` and `QA_PASSWORD_2`. |
 | `scope` | `yesterday` | `yesterday` (the previous working day; on Monday Friday to Sunday), `<N>d`, or `since:YYYY-MM-DD`. |
 | `model` | `claude-haiku-5.5` | Copilot model. `claude-sonnet-5.5` is stronger and about 20 times more expensive. |
-| `language` | `English` | Language of the Slack message. With `Dutch`, the fixed texts are Dutch too. |
+| `language` | `English` | Language of the Slack message. With `Dutch`, the fixed texts, such as the headers of the report's table, are Dutch too. |
 | `locale` | `en-US` | Browser locale of the tests, e.g. `nl-NL`. |
 | `project-dir` | `.qa-agent` | Folder with your markdown files. |
 | `base-branch` | `main` | Branch the PRs are merged into. |
 | `app-paths` | `.` | Regex. A PR is tested only when it changes a file matching it, e.g. `^src/main/`. |
 | `skip-authors` | Renovate and Dependabot | Comma separated PR authors to skip. |
 | `max-prs` | `15` | Maximum PRs per run, newest first. The rest are listed as skipped. |
-| `jira-base-url`, `jira-project-keys` | empty | Optional Jira Cloud settings. |
+| `jira-base-url`, `jira-project-keys` | empty | Optional Jira Cloud settings. With `jira-base-url`, ticket keys in the report's table link to Jira. |
 | `jira-email`, `jira-api-token` | empty | Optional Jira credentials. Only used before the agent starts. |
 | `github-token` | `github.token` | Token for reading PRs and for Copilot. |
 
