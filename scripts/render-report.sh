@@ -26,29 +26,35 @@ case "$(tr '[:upper:]' '[:lower:]' <<< "${LANGUAGE:-English}")" in
   *) HEADERS='| Ticket | Verdict | Note |' ;;
 esac
 
-titles=$(find "$CONTEXT/jira" -name '*.json' -exec cat {} + 2> /dev/null \
-  | jq -s 'map({(.key): .summary}) | add // {}' 2> /dev/null) || titles='{}'
-[[ -n "$titles" ]] || titles='{}'
+# A file, not an argument, so many tickets never hit the limit on the length of a command line.
+TITLES=$(mktemp)
+trap 'rm -f "$TITLES"' EXIT
+find "$CONTEXT/jira" -name '*.json' -exec cat {} + 2> /dev/null \
+  | jq -s 'map({(.key): .summary}) | add // {}' > "$TITLES" 2> /dev/null || echo '{}' > "$TITLES"
+[[ -s "$TITLES" ]] || echo '{}' > "$TITLES"
 
 # Keys and verdicts get non-breaking hyphens so they never wrap; text is escaped, so a title such as
 # "Fix <input> validation" shows as text and a | doesn't split the cell.
 table=$(jq -r --arg jira "${JIRA_BASE_URL:-}" --arg repo_url "$REPO_URL" --arg headers "$HEADERS" \
-  --argjson titles "$titles" '
+  --slurpfile titles "$TITLES" '
   def redact: reduce ([$ENV.QA_PASSWORD, $ENV.QA_PASSWORD_2][] | select(type == "string" and length >= 4)) as $s
     (.; split($s) | join($s | gsub("."; "*")));
   # Passwords go before anything is escaped: an escaped password no longer matches the scrub.
-  ($titles | map_values(tostring | redact)) as $titles |
+  ($titles[0] | map_values(tostring | redact)) as $titles |
   def cell: tostring | gsub("[\r\n]+"; " ") | gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;")
     | gsub("\\|"; "\\|");
   def nowrap: gsub("-"; "‑");
+  # Only a real key or PR number goes into a link; anything else could break the row or the link.
+  def key: .key | if type == "string" and test("^[A-Z][A-Z0-9]*-[0-9]+$") then . else null end;
+  def pr: [.prs[]? | select(type == "number" and . > 0 and . == floor)][0];
   def name:
-    if (.key | type) == "string" and .key != "" then
-      (if $jira == "" then (.key | nowrap) else "[\(.key | nowrap)](\($jira)/browse/\(.key))" end)
-    elif ((.prs // []) | length) > 0 then "[#\(.prs[0])](\($repo_url)/pull/\(.prs[0]))"
+    if key then
+      (if $jira == "" then (key | nowrap) else "[\(key | nowrap)](\($jira)/browse/\(key))" end)
+    elif pr then "[#\(pr)](\($repo_url)/pull/\(pr))"
     else "?" end;
   # Titles are plain text, so their Markdown is shown as is; notes may use Markdown on purpose.
   def plain: gsub("(?<c>[\\\\`*_\\[\\]!#~])"; "\\\(.c)");
-  def title: (if (.key | type) == "string" then $titles[.key] else null end) // .title // "" | tostring | plain | cell;
+  def title: (if key then $titles[key] else null end) // .title // "" | tostring | plain | cell;
   def icon: {"fail": "🐞", "needs-human": "👀", "pass": "✅", "not-testable": "➖"}[.verdict] // "❓";
   def rank: {"fail": 0, "needs-human": 1, "pass": 2}[.verdict] // 3;
   walk(if type == "string" then redact else . end)
